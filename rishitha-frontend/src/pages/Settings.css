@@ -1,0 +1,144 @@
+/* Main Page Layout */
+.settings-bootstrap-page {
+    background-color: #f8f9fa;
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* Glassmorphism Cards */
+.glass-card {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 255, 255, 0.3) !important;
+}
+
+.ls-1 {
+    letter-spacing: 0.5px;
+}
+
+.tiny-text {
+    font-size: 0.725rem;
+}
+
+.x-small-text {
+    font-size: 0.75rem;
+}
+
+/* Custom Nav Pills */
+.custom-nav-pills .nav-link {
+    border: none;
+    text-align: left;
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    background: transparent;
+}
+
+.custom-nav-pills .nav-link.active {
+    background-color: #0d6efd !important;
+    color: #fff !important;
+}
+
+.custom-nav-pills .nav-link:hover:not(.active) {
+    background-color: rgba(13, 110, 253, 0.05);
+    color: #0d6efd !important;
+    transform: translateX(5px);
+}
+
+/* Color Palette Extensions */
+.bg-primary-soft {
+    background-color: rgba(13, 110, 253, 0.1) !important;
+}
+
+.bg-danger-soft {
+    background-color: rgba(220, 53, 69, 0.1) !important;
+}
+
+.bg-warning-soft {
+    background-color: rgba(255, 193, 7, 0.1) !important;
+}
+
+/* Custom Switches */
+.custom-switch .form-check-input {
+    width: 3em;
+    height: 1.6em;
+    cursor: pointer;
+}
+
+.custom-switch-sm .form-check-input {
+    width: 2.4em;
+    height: 1.2em;
+    cursor: pointer;
+}
+
+/* Forms & Inputs */
+.form-control:focus,
+.form-select:focus {
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.1);
+    border-color: #0d6efd;
+}
+
+.border-bottom-dashed {
+    border-bottom: 1px dashed #dee2e6 !important;
+}
+
+/* Animations */
+.fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Button UI */
+.btn-icon-sm {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.shadow-xs {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02);
+}
+
+/* Custom Thin Scrollbar */
+.custom-thin-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.custom-thin-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.custom-thin-scrollbar::-webkit-scrollbar-thumb {
+    background: #dee2e6;
+    border-radius: 10px;
+}
+
+.custom-thin-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #ced4da;
+}
+
+/* Responsive Overrides */
+@media (max-width: 768px) {
+    .settings-bootstrap-page {
+        height: auto !important;
+        overflow: visible !important;
+    }
+
+    .settings-bootstrap-page .row {
+        height: auto !important;
+        overflow: visible !important;
+    }
+}

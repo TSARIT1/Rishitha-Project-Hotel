@@ -1,0 +1,42 @@
+# General
+.DS_Store
+Thumbs.db
+*.log
+
+# Java / Maven
+target/
+*.class
+*.jar
+*.war
+*.ear
+.mvn/
+mvnw
+mvnw.cmd
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# VS Code
+.vscode/
+
+# Node.js / React (Frontend)
+node_modules/
+/rishitha-frontend/node_modules/
+/rishitha-frontend/build/
+/rishitha-frontend/dist/
+/rishitha-frontend/.env
+/rishitha-frontend/.env.local
+/rishitha-frontend/.env.development.local
+/rishitha-frontend/.env.test.local
+/rishitha-frontend/.env.production.local
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Eclipse
+.classpath
+.project
+.settings/

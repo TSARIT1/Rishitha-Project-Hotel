@@ -1,0 +1,221 @@
+/* Main Page Layout */
+.suppliers-bootstrap-page {
+    background-color: #f8f9fa;
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* Glassmorphism Cards */
+.glass-card {
+    background: rgba(255, 255, 255, 0.9);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+}
+
+.ls-1 {
+    letter-spacing: 0.5px;
+}
+
+.tiny-text {
+    font-size: 0.725rem;
+}
+
+.x-small-text {
+    font-size: 0.75rem;
+}
+
+/* Stat Cards Custom Styling */
+.stat-card-modern {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.stat-card-modern:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.05) !important;
+}
+
+.stat-icon {
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 12px;
+}
+
+/* Color Palette Extensions */
+.bg-primary-soft {
+    background-color: rgba(13, 110, 253, 0.1) !important;
+}
+
+.bg-success-soft {
+    background-color: rgba(25, 135, 84, 0.1) !important;
+}
+
+.bg-warning-soft {
+    background-color: rgba(255, 193, 7, 0.1) !important;
+}
+
+.bg-info-soft {
+    background-color: rgba(13, 202, 240, 0.1) !important;
+}
+
+.bg-danger-soft {
+    background-color: rgba(220, 53, 69, 0.1) !important;
+}
+
+/* Table Customization */
+.supplier-table-modern thead th {
+    background-color: #f8f9fa;
+    border-bottom: 2px solid #edf2f9;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #64748b;
+    white-space: nowrap;
+}
+
+.supplier-table-modern tbody tr {
+    transition: background 0.2s ease;
+}
+
+.supplier-table-modern tbody tr:hover {
+    background-color: rgba(13, 110, 253, 0.02) !important;
+}
+
+/* Status Pills */
+.status-pill {
+    padding: 6px 14px;
+    border-radius: 50px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    display: inline-block;
+}
+
+.type-new {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+/* Active / Delivered */
+.type-vip {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+/* On Hold / Pending */
+
+/* Action Square Button */
+.btn-action-square {
+    width: 28px;
+    height: 28px;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: #f8f9fa;
+    border: 1px solid #edf2f9;
+    transition: all 0.2s ease;
+}
+
+.btn-action-square:hover {
+    background: #fff;
+    transform: scale(1.1);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);
+}
+
+/* Custom Thin Scrollbar */
+.custom-thin-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+.custom-thin-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.custom-thin-scrollbar::-webkit-scrollbar-thumb {
+    background: #dee2e6;
+    border-radius: 10px;
+}
+
+/* Analytics Background */
+.analytics-card-bg {
+    background: linear-gradient(135deg, #ffffff 0%, #f0f4f8 100%);
+}
+
+/* Hover Effects */
+.hover-lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+}
+
+.hover-border-primary:hover {
+    border-color: #0d6efd !important;
+    background-color: #fff !important;
+}
+
+.transition-all {
+    transition: all 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Responsive Overrides */
+@media (max-width: 992px) {
+    .suppliers-bootstrap-page {
+        height: auto !important;
+        overflow: visible !important;
+    }
+}
+
+/* Modal Styles */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(4px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1050;
+    animation: fadeIn 0.2s ease-out;
+}
+
+/* Ensure modal content stands out */
+.modal-content {
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+}
+
+.modal-content .form-control,
+.modal-content .form-select {
+    background-color: #f8fafc !important;
+    border: 1px solid #e2e8f0 !important;
+}
+
+.modal-content .form-control:focus,
+.modal-content .form-select:focus {
+    background-color: #fff !important;
+    border-color: #0d6efd !important;
+    box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.1) !important;
+}
