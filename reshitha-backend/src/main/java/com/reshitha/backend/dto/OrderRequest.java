@@ -6,6 +6,7 @@ public class OrderRequest {
     private Integer tableNumber;
     private String customerName;
     private String waiterName;
+    private Double taxRate;
     private List<OrderItemRequest> items;
 
     // Getters and Setters
@@ -32,6 +33,14 @@ public class OrderRequest {
 
     public void setWaiterName(String waiterName) {
         this.waiterName = waiterName;
+    }
+
+    public Double getTaxRate() {
+        return taxRate;
+    }
+
+    public void setTaxRate(Double taxRate) {
+        this.taxRate = taxRate;
     }
 
     public List<OrderItemRequest> getItems() {

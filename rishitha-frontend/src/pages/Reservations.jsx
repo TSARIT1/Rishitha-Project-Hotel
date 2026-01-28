@@ -28,7 +28,7 @@ const Reservations = () => {
     guests: '',
     area: 'Standard Table',
     time: '',
-    date: 'Today',
+    date: new Date().toISOString().split('T')[0],
     phone: '',
     status: 'Confirmed'
   });
@@ -56,7 +56,7 @@ const Reservations = () => {
       guests: '',
       area: 'Standard Table',
       time: '',
-      date: 'Today',
+      date: new Date().toISOString().split('T')[0],
       phone: '',
       status: 'Confirmed'
     });
@@ -382,16 +382,14 @@ const Reservations = () => {
               <div className="row g-3 mb-3">
                 <div className="col-6">
                   <label className="form-label small fw-bold text-muted text-uppercase ls-1">Date</label>
-                  <select
+                  <input
+                    type="date"
                     name="date"
-                    className="form-select bg-light border-0 shadow-none fw-semibold"
+                    className="form-control bg-light border-0 shadow-none fw-semibold"
                     value={newReservation.date}
                     onChange={handleInputChange}
-                  >
-                    <option>Today</option>
-                    <option>Tomorrow</option>
-                    <option>Day After Tomorrow</option>
-                  </select>
+                    required
+                  />
                 </div>
                 <div className="col-6">
                   <label className="form-label small fw-bold text-muted text-uppercase ls-1">Time</label>

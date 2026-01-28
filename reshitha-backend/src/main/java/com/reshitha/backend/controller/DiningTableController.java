@@ -48,4 +48,18 @@ public class DiningTableController {
         diningTableService.deleteTable(id);
         return ResponseEntity.ok(new ApiResponse<>(true, "Table deleted successfully"));
     }
+
+    @PostMapping("/{id}/generate-qr")
+    public ResponseEntity<ApiResponse<DiningTable>> regenerateQRCode(@PathVariable Long id) {
+        try {
+            DiningTable table = diningTableService.regenerateQRCode(id);
+            return ResponseEntity.ok(new ApiResponse<>(true, "QR Code generated successfully", table));
+        } catch (Throwable e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError()
+                    .body(new ApiResponse<>(false,
+                            "Failed to generate QR: " + e.getMessage() + " (" + e.getClass().getSimpleName() + ")",
+                            null));
+        }
+    }
 }

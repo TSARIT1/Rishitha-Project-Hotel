@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   ChefHat, Clock, CheckCircle, ClipboardList, RefreshCw, 
   Printer, AlertCircle, Timer, BarChart3, TrendingUp,
@@ -8,50 +8,63 @@ import './Kitchen.css';
 
 const Kitchen = () => {
   const [filter, setFilter] = useState('all');
+  const [orders, setOrders] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Sample order data
-  const orders = [
-    {
-      id: '#1234',
-      table: '5',
-      items: ['Margherita Pizza', 'Caesar Salad', 'Garlic Bread'],
-      time: '5 min',
-      priority: 'high',
-      status: 'preparing'
-    },
-    {
-      id: '#1235',
-      table: '12',
-      items: ['Chicken Alfredo', 'Red Wine Glass'],
-      time: '12 min',
-      priority: 'medium',
-      status: 'preparing'
-    },
-    {
-      id: '#1236',
-      table: '3',
-      items: ['Grilled Salmon', 'Asparagus', 'Lemonade'],
-      time: '0 min',
-      priority: 'low',
-      status: 'ready'
-    },
-    {
-      id: '#1237',
-      table: '8',
-      items: ['Beef Burger', 'Truffle Fries', 'Coke'],
-      time: '18 min',
-      priority: 'high',
-      status: 'preparing'
-    },
-    {
-      id: '#1238',
-      table: '15',
-      items: ['Spaghetti Carbonara', 'Tiramisu'],
-      time: '2 min',
-      priority: 'medium',
-      status: 'ready'
+  const fetchOrders = async () => {
+    try {
+        setLoading(true);
+        const { default: api } = await import('../api/axiosConfig');
+        const response = await api.get('/orders'); 
+        if (response.data.success) {
+            const activeOrders = response.data.data.filter(o => 
+                ['PENDING', 'PREPARING', 'READY'].includes(o.status)
+            ).sort((a, b) => b.id - a.id); // Sort descending by ID so new orders are top
+            
+            const mappedOrders = activeOrders.map(o => ({
+                id: `#${o.id}`,
+                rawId: o.id,
+                table: o.tableNumber ? String(o.tableNumber) : 'Takeaway',
+                items: o.items ? o.items.map(i => i.menuItem.name) : [],
+                time: getTimeDifference(o.orderTime),
+                priority: 'medium',
+                status: o.status === 'PENDING' ? 'arrived' : o.status.toLowerCase(),
+                rawStatus: o.status
+            }));
+            setOrders(mappedOrders);
+        }
+    } catch (err) {
+        console.error("Error fetching kitchen orders", err);
+    } finally {
+        setLoading(false);
     }
-  ];
+  };
+
+  useEffect(() => {
+    fetchOrders();
+    const interval = setInterval(fetchOrders, 30000); // Poll every 30s
+    return () => clearInterval(interval);
+  }, []);
+
+  const getTimeDifference = (orderTime) => {
+      if (!orderTime) return '0 min';
+      const diffStr = new Date() - new Date(orderTime);
+      const diffMins = Math.floor(diffStr / 60000);
+      return `${diffMins} min`;
+  };
+
+  const handleStatusUpdate = async (id, newStatus) => {
+      try {
+          const { default: api } = await import('../api/axiosConfig');
+          const response = await api.put(`/orders/${id}/status?status=${newStatus}`);
+          if (response.data.success) {
+              fetchOrders(); 
+          }
+      } catch (err) {
+          console.error("Error updating status", err);
+          alert("Failed to update status");
+      }
+  };
 
   // Sample chef data
   const chefs = [
@@ -68,10 +81,14 @@ const Kitchen = () => {
     { order: '#1235', startTime: '11:30 AM', estimatedTime: '18m', status: 'Ready' }
   ];
 
+  const arrivedCount = orders.filter(o => o.status === 'arrived').length;
+  const preparingCount = orders.filter(o => o.status === 'preparing').length;
+  const readyCount = orders.filter(o => o.status === 'ready').length;
+
   const stats = [
-    { label: 'Preparing', value: '12', color: 'warning', icon: Timer },
-    { label: 'Ready', value: '5', color: 'success', icon: CheckCircle },
-    { label: 'Total Today', value: '28', color: 'info', icon: BarChart3 },
+    { label: 'Arrived', value: arrivedCount, color: 'danger', icon: AlertCircle },
+    { label: 'Preparing', value: preparingCount, color: 'warning', icon: Timer },
+    { label: 'Ready', value: readyCount, color: 'success', icon: CheckCircle },
     { label: 'Avg Time', value: '15m', color: 'primary', icon: Clock }
   ];
 
@@ -100,13 +117,13 @@ const Kitchen = () => {
             </div>
             <div>
               <h1 className="h3 fw-bold mb-0 text-dark">Kitchen Display System</h1>
-              <p className="text-muted small mb-0 fw-medium">Real-time Order Monitoring • Tuesday, Jan 6</p>
+              <p className="text-muted small mb-0 fw-medium">Real-time Order Monitoring • {new Date().toLocaleDateString()}</p>
             </div>
           </div>
         </div>
         <div className="col-auto d-flex gap-2">
-          <button className="btn btn-outline-primary shadow-sm d-flex align-items-center gap-2 px-3 py-2 fw-semibold border-0 bg-white" onClick={() => window.location.reload()}>
-            <RefreshCw size={18} /> Refresh
+          <button className="btn btn-outline-primary shadow-sm d-flex align-items-center gap-2 px-3 py-2 fw-semibold border-0 bg-white" onClick={fetchOrders}>
+            <RefreshCw size={18} className={loading ? "spin-slow" : ""} /> Refresh
           </button>
           <button className="btn btn-primary d-flex align-items-center gap-2 px-3 py-2 fw-semibold shadow-sm">
             <Printer size={18} /> Print KOT
@@ -141,7 +158,7 @@ const Kitchen = () => {
           <div className="card-header bg-white border-0 pt-4 px-4 d-flex justify-content-between align-items-center">
             <h4 className="fw-bold mb-0 text-dark">Active Orders</h4>
             <div className="btn-group p-1 bg-light rounded-3">
-              {['all', 'preparing', 'ready'].map((f) => (
+              {['all', 'arrived', 'preparing', 'ready'].map((f) => (
                 <button 
                   key={f}
                   className={`btn btn-sm px-4 py-2 rounded-2 border-0 shadow-none text-capitalize fw-bold ${filter === f ? 'bg-white text-primary shadow-sm' : 'text-muted'}`}
@@ -155,48 +172,65 @@ const Kitchen = () => {
 
           <div className="card-body p-4 pt-2">
             <div className="row g-3">
-              {filteredOrders.map((order) => (
-                <div key={order.id} className="col-12 col-md-6 col-xl-4">
-                  <div className={`card h-100 shadow-sm order-card-modern ${getPriorityClass(order.priority)} rounded-4 border-0`}>
-                    <div className="card-body p-3 d-flex flex-column">
-                      <div className="d-flex justify-content-between align-items-start mb-3">
-                        <div className="d-flex align-items-center gap-2">
-                          <span className="badge bg-light text-dark fw-bold p-2 border">Table {order.table}</span>
-                          <span className="fw-bold text-dark">{order.id}</span>
-                        </div>
-                        <button className="btn btn-link p-0 text-muted"><MoreVertical size={18} /></button>
-                      </div>
+              {filteredOrders.length === 0 ? (
+                  <div className="col-12 py-5 text-center text-muted">
+                      <h5>No active orders</h5>
+                      <p>Wait for new orders to arrive</p>
+                  </div>
+              ) : (
+                  filteredOrders.map((order) => (
+                    <div key={order.id} className="col-12 col-md-6 col-xl-4">
+                      <div className={`card h-100 shadow-sm order-card-modern ${getPriorityClass(order.priority)} rounded-4 border-0`}>
+                        <div className="card-body p-3 d-flex flex-column">
+                          <div className="d-flex justify-content-between align-items-start mb-3">
+                            <div className="d-flex align-items-center gap-2">
+                              <span className="badge bg-light text-dark fw-bold p-2 border">Table {order.table}</span>
+                              <span className="fw-bold text-dark">{order.id}</span>
+                            </div>
+                            <button className="btn btn-link p-0 text-muted"><MoreVertical size={18} /></button>
+                          </div>
 
-                      <div className="flex-grow-1 mb-3">
-                        <ul className="list-unstyled mb-0">
-                          {order.items.map((item, i) => (
-                            <li key={i} className="d-flex align-items-center gap-2 mb-2">
-                              <div className="p-1 bg-primary text-white rounded-circle" style={{ width: '6px', height: '6px' }}></div>
-                              <span className="fw-semibold small">{item}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
+                          <div className="flex-grow-1 mb-3">
+                            <ul className="list-unstyled mb-0">
+                              {order.items.map((item, i) => (
+                                <li key={i} className="d-flex align-items-center gap-2 mb-2">
+                                  <div className="p-1 bg-primary text-white rounded-circle" style={{ width: '6px', height: '6px' }}></div>
+                                  <span className="fw-semibold small">{item}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
 
-                      <div className="d-flex justify-content-between align-items-center mt-auto">
-                        <div className="d-flex align-items-center gap-1 text-muted fw-bold small">
-                           <Clock size={16} />
-                           {order.time}
+                          <div className="d-flex justify-content-between align-items-center mt-auto">
+                            <div className="d-flex align-items-center gap-1 text-muted fw-bold small">
+                               <Clock size={16} />
+                               {order.time}
+                            </div>
+                            {order.status === 'arrived' ? (
+                               <button 
+                                onClick={() => handleStatusUpdate(order.rawId, 'PREPARING')}
+                                className="btn btn-danger-soft text-danger fw-bold btn-sm px-3 rounded-pill hover-lift d-flex align-items-center gap-2">
+                                <ClipboardList size={14} /> Start Making
+                               </button>
+                            ) : order.status === 'preparing' ? (
+                              <button 
+                                onClick={() => handleStatusUpdate(order.rawId, 'READY')}
+                                className="btn btn-warning-soft text-warning fw-bold btn-sm px-3 rounded-pill hover-lift d-flex align-items-center gap-2">
+                                <RefreshCw size={14} className="spin-slow" /> Mark Ready
+                              </button>
+                            ) : (
+                              <button 
+                                onClick={() => handleStatusUpdate(order.rawId, 'COMPLETED')}
+                                className="btn btn-success-soft text-success fw-bold btn-sm px-3 rounded-pill hover-lift d-flex align-items-center gap-2">
+                                <CheckCheck size={14} /> Complete
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        {order.status === 'preparing' ? (
-                          <button className="btn btn-warning-soft text-warning fw-bold btn-sm px-3 rounded-pill hover-lift d-flex align-items-center gap-2">
-                            <RefreshCw size={14} className="spin-slow" /> Mark Ready
-                          </button>
-                        ) : (
-                          <button className="btn btn-success-soft text-success fw-bold btn-sm px-3 rounded-pill hover-lift d-flex align-items-center gap-2">
-                            <CheckCheck size={14} /> Complete
-                          </button>
-                        )}
                       </div>
                     </div>
-                  </div>
-                </div>
-              ))}
+                  ))
+              )}
             </div>
           </div>
         </div>

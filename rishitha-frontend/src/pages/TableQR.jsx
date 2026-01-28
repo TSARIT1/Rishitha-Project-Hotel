@@ -127,15 +127,39 @@ const TableQR = () => {
   };
 
   const handleDownloadQR = () => {
-    alert('Downloading QR Code as PNG...');
+    if (selectedTableData?.qrCodeImage) {
+      const link = document.createElement("a");
+      link.href = `data:image/png;base64,${selectedTableData.qrCodeImage}`;
+      link.download = `Table-${selectedTable}-QR.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } else {
+      alert('No QR Code available to download.');
+    }
   };
 
   const handlePrintLabel = () => {
     alert('Printing table label...');
   };
 
-  const handleRegenerate = () => {
-    alert('Regenerating QR Code...');
+  const handleRegenerate = async () => {
+    if (!selectedTableData?.id) return;
+    
+    try {
+        const { default: api } = await import('../api/axiosConfig');
+        const response = await api.post(`/tables/${selectedTableData.id}/generate-qr`);
+        
+        if (response.data.success) {
+            alert('QR Code regenerated successfully!');
+            // Update local state without full refetch if possible, or just refetch
+            fetchTables(); 
+        }
+    } catch (error) {
+        console.error("Error regenerating QR:", error);
+        const errorMsg = error.response?.data?.message || error.message || 'Unknown error';
+        alert(`Failed to regenerate QR Code. Error: ${errorMsg}`);
+    }
   };
 
   const handleUpdateSettings = () => {
@@ -361,7 +385,16 @@ const TableQR = () => {
             <div className="card-body p-4">
               <div className="qr-code-wrapper bg-light rounded-4 p-4 mb-4 text-center border">
                 <div className="qr-placeholder bg-white d-inline-block p-3 rounded-3 shadow-sm">
-                  <QrCode size={180} className="text-dark opacity-50" />
+                  {selectedTableData?.qrCodeImage ? (
+                    <img 
+                      src={`data:image/png;base64,${selectedTableData.qrCodeImage}`} 
+                      alt={`QR Code for Table ${selectedTable}`}
+                      width={180}
+                      height={180}
+                    />
+                  ) : (
+                    <QrCode size={180} className="text-dark opacity-50" />
+                  )}
                 </div>
                 <div className="mt-3">
                   <code className="text-primary small fw-bold">rishitha.com/menu/{selectedTable}</code>

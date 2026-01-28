@@ -19,11 +19,12 @@ import Careers from './pages/Careers';
 import Settings from './pages/Settings';
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
+import MenuOrder from './pages/MenuOrder';
 import './App.css';
 
 function AppContent({ sidebarOpen, setSidebarOpen, toggleSidebar, currentSection, setCurrentSection }) {
   const location = useLocation();
-  const isLandingPage = location.pathname === '/' || location.pathname === '/landing' || location.pathname === '/login';
+  const isLandingPage = location.pathname === '/' || location.pathname === '/landing' || location.pathname === '/login' || location.pathname.startsWith('/menu/');
 
   useEffect(() => {
     const path = location.pathname;
@@ -50,6 +51,7 @@ function AppContent({ sidebarOpen, setSidebarOpen, toggleSidebar, currentSection
         <Route path="/" element={<LandingPage />} />
         <Route path="/landing" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/menu/:tableNo" element={<MenuOrder />} />
       </Routes>
     );
   }

@@ -11,10 +11,10 @@ const Sidebar = ({ isOpen, onClose, currentSection, setCurrentSection }) => {
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard', badge: null },
-    { icon: Package, label: 'Inventory', path: '/inventory', badge: 8 },
+    { icon: Package, label: 'Inventory', path: '/inventory', badge: null },
     { icon: Receipt, label: 'Billing & Invoices', path: '/billing', badge: null },
     { icon: QrCode, label: 'Table QR', path: '/tables', badge: null },
-    { icon: ClipboardList, label: 'Order Management', path: '/orders', badge: 12 },
+    { icon: ClipboardList, label: 'Order Management', path: '/orders', badge: null },
     { icon: UtensilsCrossed, label: 'Menu', path: '/menu', badge: null },
     { icon: Users, label: 'Customers', path: '/customers', badge: null },
     { icon: BarChart3, label: 'Reports & Analytics', path: '/reports', badge: null },

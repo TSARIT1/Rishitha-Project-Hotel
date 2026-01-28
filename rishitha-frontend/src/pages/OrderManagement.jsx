@@ -29,6 +29,7 @@ const OrderManagement = () => {
 
   const [menuItems, setMenuItems] = useState([]);
   const [ordersData, setOrdersData] = useState([]);
+  const [waiters, setWaiters] = useState([]); // State for waiters
   const [stats, setStats] = useState([
     { label: 'Pending', count: 0, status: 'Pending' },
     { label: 'Preparing', count: 0, status: 'Preparing' },
@@ -45,13 +46,26 @@ const OrderManagement = () => {
   const fetchData = async () => {
       try {
           const { default: api } = await import('../api/axiosConfig');
-          const [menuRes, ordersRes] = await Promise.all([
+          const [menuRes, ordersRes, staffRes] = await Promise.all([
               api.get('/menu'),
-              api.get('/orders')
+              api.get('/orders'),
+              api.get('/staff')
           ]);
 
           if (menuRes.data.success) {
               setMenuItems(menuRes.data.data);
+          }
+
+          if (staffRes.data.success) {
+              const staffList = staffRes.data.data;
+              const validRoles = ['Waiter', 'Waitress', 'Server'];
+              const waiterList = staffList.filter(s => validRoles.includes(s.role));
+              setWaiters(waiterList);
+              
+              // Set default waiter if list is not empty and current waiter is invalid
+              if (waiterList.length > 0 && !validRoles.includes('Sarah')) { // 'Sarah' was the hardcoded default
+                  setOrderFormData(prev => ({ ...prev, waiter: waiterList[0].name }));
+              }
           }
 
           if (ordersRes.data.success) {
@@ -743,10 +757,14 @@ const OrderManagement = () => {
                         onChange={handleInputChange}
                         required
                       >
-                        <option value="Sarah">Sarah</option>
-                        <option value="Mike">Mike</option>
-                        <option value="Emma">Emma</option>
-                        <option value="John">John</option>
+                        <option value="">Select Waiter...</option>
+                        {waiters.length > 0 ? (
+                            waiters.map(waiter => (
+                                <option key={waiter.id} value={waiter.name}>{waiter.name}</option>
+                            ))
+                        ) : (
+                            <option value="Staff">Staff (Default)</option>
+                        )}
                       </select>
                     </div>
 

@@ -55,7 +55,14 @@ public class OrderService {
             totalAmount += menuItem.getPrice() * itemRequest.getQuantity();
         }
 
-        order.setTotalAmount(totalAmount);
+        double taxRate = request.getTaxRate() != null ? request.getTaxRate() : 0.0;
+        double taxAmount = totalAmount * (taxRate / 100.0);
+        double finalAmount = totalAmount + taxAmount;
+
+        order.setTaxRate(taxRate);
+        order.setTaxAmount(taxAmount);
+        order.setTotalAmount(finalAmount);
+
         order.setTotalItemsCount(
                 request.getItems().stream().mapToInt(OrderRequest.OrderItemRequest::getQuantity).sum());
         return orderRepository.save(order);

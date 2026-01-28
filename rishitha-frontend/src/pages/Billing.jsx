@@ -3,6 +3,9 @@ import {
   DollarSign, CreditCard, Wallet, Clock, 
   Plus, Download, Printer, Filter, Eye, Edit, Trash2
 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
 import StatCard from '../components/UI/StatCard';
 import './Billing.css';
 
@@ -15,6 +18,7 @@ const Billing = () => {
   
   const [billItems, setBillItems] = useState([]);
   const [currentItem, setCurrentItem] = useState({ name: '', price: '', quantity: 1 });
+  const [tables, setTables] = useState([]);
 
   // Form data for new bill
   const [billFormData, setBillFormData] = useState({
@@ -22,12 +26,14 @@ const Billing = () => {
     phone: '',
     tableType: 'Table 01',
     discount: 0,
+    tax: 5, // Default 5%
     paymentMethod: 'Cash'
   });
 
   // Calculate totals
   const subtotal = billItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const tax = subtotal * 0.05; // Assuming 5% tax for example, or you can make it editable
+  const taxRate = parseFloat(billFormData.tax) || 0;
+  const tax = subtotal * (taxRate / 100); 
   const totalAmount = subtotal + tax - (parseFloat(billFormData.discount) || 0);
 
   const stats = [
@@ -79,13 +85,18 @@ const Billing = () => {
   const fetchBillingData = async () => {
       try {
         const { default: api } = await import('../api/axiosConfig');
-        const [menuRes, ordersRes] = await Promise.all([
+        const [menuRes, ordersRes, tablesRes] = await Promise.all([
             api.get('/menu'),
-            api.get('/orders')
+            api.get('/orders'),
+            api.get('/tables')
         ]);
         
         if (menuRes.data.success) {
             setMenuItems(menuRes.data.data);
+        }
+        
+        if (tablesRes.data.success) {
+            setTables(tablesRes.data.data);
         }
 
         if (ordersRes.data.success) {
@@ -141,10 +152,11 @@ const Billing = () => {
       phone: '',
       tableType: 'Table 01',
       discount: 0,
-      paymentMethod: 'Cash'
+      paymentMethod: 'Cash',
+      tax: 5
     });
     setBillItems([]);
-    setCurrentItem({ name: '', price: '', quantity: 1 });
+    setCurrentItem({ name: '', price: '', quantity: 1, menuItemId: null });
   };
 
   const handleAddItem = () => {
@@ -212,7 +224,8 @@ const Billing = () => {
         items: billItems.map(item => ({
             menuItemId: item.menuItemId,
             quantity: item.quantity
-        }))
+        })),
+        taxRate: parseFloat(billFormData.tax) || 0
     };
 
     try {
@@ -221,6 +234,23 @@ const Billing = () => {
         
         if (response.data.success) {
             alert('Bill created successfully!');
+            
+            // Generate PDF immediately
+            const orderData = response.data.data;
+            const pdfData = {
+                billNo: `BILL-${String(orderData.id).padStart(3, '0')}`,
+                customer: orderData.customerName,
+                tableType: orderData.tableNumber ? `Table ${orderData.tableNumber}` : 'Takeaway',
+                itemsDetail: billItems, // Use local state as response might not have details populated immediately in same format
+                subtotal: subtotal,
+                tax: tax,
+                taxRate: taxRate,
+                discount: parseFloat(billFormData.discount) || 0,
+                total: totalAmount,
+                paymentMethod: billFormData.paymentMethod
+            };
+            generateInvoicePDF(pdfData);
+
             fetchBillingData(); // Refresh list
             handleCloseModal();
         }
@@ -234,6 +264,96 @@ const Billing = () => {
   const handlePrint = () => alert('Print Bills - Would open print dialog');
   const handleView = (billNo) => alert(`View Bill ${billNo} - Modal would open`);
   const handleEdit = (billNo) => alert(`Edit Bill ${billNo} - Modal would open`);
+  const generateInvoicePDF = (billData) => {
+    const doc = new jsPDF();
+
+    // Header
+    doc.setFontSize(22);
+    doc.setTextColor(220, 53, 69); // Danger color default
+    doc.text("RISHITHA RESTAURANT", 105, 20, null, null, "center");
+    
+    doc.setFontSize(12);
+    doc.setTextColor(100);
+    doc.text("123 Food Street, Delicious City, 560001", 105, 28, null, null, "center");
+    doc.text("Phone: +91 98765 43210 | Email: contact@rishitha.com", 105, 34, null, null, "center");
+    
+    doc.setDrawColor(200);
+    doc.line(10, 38, 200, 38);
+
+    // Bill Details
+    doc.setFontSize(14);
+    doc.setTextColor(0);
+    doc.text("INVOICE", 15, 50);
+
+    doc.setFontSize(10);
+    doc.text(`Bill No: ${billData.billNo || 'N/A'}`, 15, 60);
+    doc.text(`Date: ${new Date().toLocaleString()}`, 15, 66);
+    
+    doc.text(`Customer: ${billData.customer || 'Guest'}`, 130, 60);
+    doc.text(`Table: ${billData.tableType || 'N/A'}`, 130, 66);
+    doc.text(`Payment: ${billData.paymentMethod || 'Cash'}`, 130, 72);
+
+    // Table
+    const tableColumn = ["Item", "Price", "Qty", "Total"];
+    const tableRows = [];
+
+    // Check if items are from billData.items (array of objects) or number (from list view)
+    // If generating from list view without items detail, we can't show full list
+    // Ideally we should fetch full order details. For now, we support the new bill creation flow mostly.
+    
+    if (Array.isArray(billData.itemsDetail)) {
+        billData.itemsDetail.forEach(item => {
+            const itemData = [
+                item.name,
+                `$${parseFloat(item.price).toFixed(2)}`,
+                item.quantity,
+                `$${parseFloat(item.total).toFixed(2)}`
+            ];
+            tableRows.push(itemData);
+        });
+    }
+
+    autoTable(doc, {
+        head: [tableColumn],
+        body: tableRows,
+        startY: 80,
+        theme: 'grid',
+        headStyles: { fillColor: [220, 53, 69] },
+    });
+
+    // Output Final Y
+    const finalY = doc.lastAutoTable.finalY + 10;
+
+    // Totals
+    doc.setFontSize(10);
+    doc.text(`Subtotal:`, 140, finalY);
+    doc.text(`$${(billData.subtotal || 0).toFixed(2)}`, 190, finalY, null, null, "right");
+
+    if (billData.taxRate > 0) {
+        doc.text(`Tax (${billData.taxRate}%):`, 140, finalY + 6);
+        doc.text(`$${(billData.tax || 0).toFixed(2)}`, 190, finalY + 6, null, null, "right");
+    }
+
+    if (billData.discount > 0) {
+        doc.text(`Discount:`, 140, finalY + 12);
+        doc.text(`-$${(billData.discount || 0).toFixed(2)}`, 190, finalY + 12, null, null, "right");
+    }
+
+    doc.setFontSize(14);
+    doc.setFont(undefined, 'bold');
+    doc.text(`Total:`, 140, finalY + 20);
+    doc.setTextColor(220, 53, 69);
+    doc.text(`$${(billData.total || 0).toFixed(2)}`, 190, finalY + 20, null, null, "right");
+
+    // Footer
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(150);
+    doc.text("Thank you for dining with us!", 105, 280, null, null, "center");
+
+    doc.save(`Invoice_${billData.billNo || Date.now()}.pdf`);
+  };
+
   const handleDelete = (billNo) => {
     if (window.confirm(`Delete bill ${billNo}?`)) {
       setBills(prev => prev.filter(bill => bill.billNo !== billNo));
@@ -480,15 +600,16 @@ const Billing = () => {
                     {/* Customer Info */}
                     <div className="col-md-6">
                       <label className="form-label fw-bold small text-muted text-uppercase">Customer Name *</label>
-                      <input type="text" className="form-control rounded-pill px-3" name="customer" value={billFormData.customer} onChange={handleInputChange} placeholder="John Doe" required />
+                      <input type="text" className="form-control rounded-pill px-3" name="customer" value={billFormData.customer || ''} onChange={handleInputChange} placeholder="John Doe" required />
                     </div>
                    
                     <div className="col-md-6">
                       <label className="form-label fw-bold small text-muted text-uppercase">Table/Type *</label>
                       <select className="form-select rounded-pill px-3" name="tableType" value={billFormData.tableType} onChange={handleInputChange} required>
-                         {Array.from({ length: 20 }, (_, i) => (
-                          <option key={i} value={`Table ${String(i + 1).padStart(2, '0')}`}>Table {String(i + 1).padStart(2, '0')}</option>
-                        ))}
+                         <option value="">Select Table</option>
+                         {tables.map(table => (
+                          <option key={table.id} value={`Table ${String(table.tableNo).padStart(2, '0')}`}>Table {String(table.tableNo).padStart(2, '0')}</option>
+                         ))}
                         <option value="Takeaway">Takeaway</option>
                         <option value="Delivery">Delivery</option>
                       </select>
@@ -560,7 +681,11 @@ const Billing = () => {
                     {/* Footer Totals */}
                     <div className="col-md-7">
                         <div className="row g-3">
-                             <div className="col-12">
+                            <div className="col-6">
+                              <label className="form-label fw-bold small text-muted text-uppercase">Tax Rate (%)</label>
+                              <input type="number" step="0.1" className="form-control rounded-pill px-3" name="tax" value={billFormData.tax} onChange={handleInputChange} />
+                            </div>
+                            <div className="col-12">
                               <label className="form-label fw-bold small text-muted text-uppercase">Payment Method</label>
                               <select className="form-select rounded-pill px-3" name="paymentMethod" value={billFormData.paymentMethod} onChange={handleInputChange}>
                                 <option>Cash</option><option>Card</option><option>UPI</option><option>Online</option>
@@ -578,7 +703,7 @@ const Billing = () => {
                                     <span className="fw-bold">${subtotal.toFixed(2)}</span>
                                 </div>
                                 <div className="d-flex justify-content-between mb-3 small">
-                                    <span className="text-muted">Tax (5%):</span>
+                                    <span className="text-muted">Tax ({billFormData.tax}%):</span>
                                     <span className="fw-bold">${tax.toFixed(2)}</span>
                                 </div>
                                 <div className="border-top border-secondary border-opacity-25 pt-2 d-flex justify-content-between align-items-center">

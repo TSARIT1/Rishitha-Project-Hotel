@@ -26,6 +26,10 @@ public class DiningTable {
 
     private String status; // Available, Occupied, Reserved
 
+    @Lob
+    @Column(columnDefinition = "MEDIUMTEXT")
+    private String qrCodeImage;
+
     public DiningTable() {
     }
 
@@ -99,5 +103,13 @@ public class DiningTable {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getQrCodeImage() {
+        return qrCodeImage;
+    }
+
+    public void setQrCodeImage(String qrCodeImage) {
+        this.qrCodeImage = qrCodeImage;
     }
 }

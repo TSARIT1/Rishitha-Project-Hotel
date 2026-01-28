@@ -22,9 +22,20 @@ public class OrderController {
     }
 
     @GetMapping
-    public ResponseEntity<ApiResponse<List<Order>>> getAllOrders() {
-        List<Order> orders = orderService.getAllOrders();
-        return ResponseEntity.ok(new ApiResponse<>(true, "Fetched all orders", orders));
+    public ResponseEntity<ApiResponse<List<Order>>> getAllOrders(@RequestParam(required = false) String status) {
+        List<Order> orders;
+        if (status != null && !status.isEmpty()) {
+            try {
+                com.reshitha.backend.model.OrderStatus orderStatus = com.reshitha.backend.model.OrderStatus
+                        .valueOf(status.toUpperCase());
+                orders = orderService.getOrdersByStatus(orderStatus);
+            } catch (IllegalArgumentException e) {
+                return ResponseEntity.badRequest().body(new ApiResponse<>(false, "Invalid status: " + status, null));
+            }
+        } else {
+            orders = orderService.getAllOrders();
+        }
+        return ResponseEntity.ok(new ApiResponse<>(true, "Fetched orders", orders));
     }
 
     @PostMapping

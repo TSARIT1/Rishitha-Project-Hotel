@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   QrCode, Utensils, Calendar, Users, Star, 
   MapPin, Phone, Instagram, Facebook, Twitter,
   ChevronRight, ArrowRight, Camera, Check, Play,
-  Briefcase, Clock
+  Briefcase, Clock, X
 } from 'lucide-react';
+import { Html5QrcodeScanner } from 'html5-qrcode';
 import ScrollReveal from '../components/UI/ScrollReveal';
 import './LandingPage.css';
 
@@ -20,7 +21,44 @@ const LandingPage = () => {
     type: 'Table'
   });
 
+  const navigate = useNavigate();
+
   const [scanActive, setScanActive] = useState(false);
+
+  React.useEffect(() => {
+    if (scanActive) {
+        const scanner = new Html5QrcodeScanner(
+            "reader", 
+            { fps: 10, qrbox: { width: 250, height: 250 } },
+            /* verbose= */ false
+        );
+        
+        scanner.render((decodedText, decodedResult) => {
+            // Success callback
+            console.log(`Scan result: ${decodedText}`, decodedResult);
+            
+            // Expected: https://rishitha.com/menu/12 or just 12
+            try {
+                const match = decodedText.match(/\/menu\/(\d+)/) || decodedText.match(/(\d+)$/);
+                if (match && match[1]) {
+                   scanner.clear();
+                   setScanActive(false);
+                   navigate(`/menu/${match[1]}`);
+                }
+            } catch (e) {
+                console.error("Parsing error", e);
+            }
+        }, (error) => {
+            // Error callback - ignore simple scan failures
+            // console.warn(error);
+        });
+
+        // Cleanup
+        return () => {
+            scanner.clear().catch(error => console.error("Failed to clear scanner", error));
+        };
+    }
+  }, [scanActive, navigate]);
   const [showSuccess, setShowSuccess] = useState(false);
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
@@ -135,22 +173,28 @@ const LandingPage = () => {
             </div>
             
             <div className="scan-visual">
-              <div className={`qr-mockup ${scanActive ? 'scanning' : ''}`}>
-                <div className="qr-box">
-                  <QrCode size={180} />
-                  <div className="scan-line"></div>
-                </div>
-                {!scanActive ? (
-                  <button className="btn-scan" onClick={() => setScanActive(true)}>
-                    <Camera size={18} /> Tap to Scan Simulation
-                  </button>
-                ) : (
-                  <div className="scan-feedback">
-                    <p className="pulse">Linking to Table #12...</p>
-                    <button className="btn-link" onClick={() => setScanActive(false)}>Reset</button>
+              {scanActive ? (
+                 <div className="qr-scanner-wrapper position-relative rounded-4 overflow-hidden shadow-lg border-primary border-3" style={{ maxWidth: '350px', margin: '0 auto', background: '#fff' }}>
+                    <div id="reader" style={{ width: '100%' }}></div>
+                    <button 
+                        className="btn btn-dark btn-sm position-absolute top-0 end-0 m-3 rounded-circle opacity-75" 
+                        style={{ zIndex: 1000 }}
+                        onClick={() => setScanActive(false)}
+                    >
+                       <X size={20} />
+                    </button>
+                 </div>
+              ) : (
+                <div className="qr-mockup">
+                  <div className="qr-box">
+                     <QrCode size={180} />
+                     <div className="scan-line"></div>
                   </div>
-                )}
-              </div>
+                  <button className="btn-scan" onClick={() => setScanActive(true)}>
+                     <Camera size={18} /> Tap to Scan Menu
+                  </button>
+                </div>
+              )}
             </div>
           </ScrollReveal>
         </div>

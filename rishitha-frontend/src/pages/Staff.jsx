@@ -257,6 +257,9 @@ const Staff = () => {
                         <option value="Server">Server</option>
                         <option value="Head Chef">Head Chef</option>
                         <option value="Manager">Manager</option>
+                        <option value="Server">Server</option>
+                        <option value="Waiter">Waiter</option>
+                        <option value="Waitress">Waitress</option>
                         <option value="Receptionist">Receptionist</option>
                         <option value="Sous Chef">Sous Chef</option>
                         <option value="Shift Lead">Shift Lead</option>
@@ -458,6 +461,8 @@ const Staff = () => {
                 <option>Head Chef</option>
                 <option>Manager</option>
                 <option>Server</option>
+                <option>Waiter</option>
+                <option>Waitress</option>
                 <option>Receptionist</option>
                 <option>Sous Chef</option>
               </select>
