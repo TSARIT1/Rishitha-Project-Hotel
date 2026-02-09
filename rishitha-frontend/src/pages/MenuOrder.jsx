@@ -17,6 +17,7 @@ const MenuOrder = () => {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [showCart, setShowCart] = useState(false);
   const [orderPlaced, setOrderPlaced] = useState(false);
+  const [instructions, setInstructions] = useState('');
 
   useEffect(() => {
     fetchMenu();
@@ -24,7 +25,7 @@ const MenuOrder = () => {
 
   const fetchMenu = async () => {
     try {
-      const { default: api } = await import('../api/axiosConfig');
+      const { default: api } = await import('../services/api');
       const response = await api.get('/menu');
       if (response.data.success) {
         setMenuItems(response.data.data);
@@ -68,12 +69,13 @@ const MenuOrder = () => {
 
   const placeOrder = async () => {
     try {
-      const { default: api } = await import('../api/axiosConfig');
+      const { default: api } = await import('../services/api');
       
       const orderPayload = {
-        tableNumber: parseInt(tableNo),
+        tableNumber: parseInt(tableNo) || 0, // Fallback to 0 if NaN
         customerName: "Guest (QR)", // Basic guest
         waiterName: "App", // Auto-assigned
+        instructions: instructions, // Add instructions to payload
         items: Object.values(cart).map(item => ({
           menuItemId: item.id,
           quantity: item.quantity
@@ -126,100 +128,101 @@ const MenuOrder = () => {
   );
 
   return (
-    <div className="menu-order-page bg-light min-vh-100 position-relative pb-5">
-      {/* Header */}
-      <div className="bg-white shadow-sm sticky-top">
-        <div className="d-flex align-items-center justify-content-between p-3">
-          <button className="btn btn-light rounded-circle p-2" onClick={() => navigate('/')}>
-            <ChevronLeft size={20} />
+    <div className="menu-order-page min-vh-100">
+      
+      {/* 1. Hero Section */}
+      <div className="menu-hero">
+        <div className="d-flex justify-content-between align-items-start mb-3">
+          <button className="btn btn-white btn-sm rounded-circle p-2 shadow-sm" onClick={() => navigate('/')}>
+            <ChevronLeft size={20} className="text-dark" />
           </button>
-          <div className="text-center">
-            <h6 className="mb-0 fw-bold text-uppercase ls-1 tiny-text text-muted">Digital Menu</h6>
-            <h5 className="mb-0 fw-bold">Table {tableNo}</h5>
-          </div>
-          <div className="position-relative" onClick={() => getCartCount() > 0 && setShowCart(true)}>
-             <ShoppingBag size={24} className={getCartCount() > 0 ? "text-primary" : "text-muted"} />
-             {getCartCount() > 0 && (
-               <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                 {getCartCount()}
-               </span>
-             )}
+          <div className="bg-white text-dark px-3 py-1 rounded-pill small fw-bold shadow-sm d-flex align-items-center gap-1">
+             <Utensils size={14} className="text-primary" />
+             Table {tableNo}
           </div>
         </div>
-        
-        {/* Search & Filter */}
-        <div className="px-3 pb-3">
-          <div className="input-group input-group-sm bg-light rounded-pill border mb-3 overflow-hidden">
-             <span className="input-group-text border-0 bg-transparent text-muted ps-3"><Search size={16}/></span>
+        <h2 className="display-6 fw-bold mb-0">What would you like to eat?</h2>
+        <p className="opacity-75 small mt-1 mb-0">Discover our delicious culinary delights.</p>
+      </div>
+
+      {/* 2. Search Box (Floating overlap) */}
+      <div className="menu-search-container position-relative z-2">
+         <div className="input-group search-box-glass rounded-4 p-1">
+             <span className="input-group-text border-0 bg-transparent ps-3"><Search size={18} className="text-muted"/></span>
              <input 
                type="text" 
                className="form-control border-0 bg-transparent shadow-none" 
-               placeholder="Search dishes..."
+               placeholder="Search for dishes..."
+               style={{ fontSize: '0.95rem' }}
                value={searchTerm}
                onChange={(e) => setSearchTerm(e.target.value)}
              />
-          </div>
-          
-          <div className="d-flex gap-2 overflow-auto no-scrollbar pb-1">
-            {categories.map(cat => (
-              <button 
-                key={cat}
-                className={`btn btn-sm rounded-pill px-3 fw-semibold whitespace-nowrap ${selectedCategory === cat ? 'btn-primary' : 'btn-white border'}`}
-                onClick={() => setSelectedCategory(cat)}
-              >
-                {cat}
-              </button>
-            ))}
-          </div>
-        </div>
+         </div>
       </div>
 
-      {/* Menu Grid */}
-      <div className="container-fluid p-3">
+      {/* 3. Sticky Category Nav */}
+      <div className="category-nav overflow-auto no-scrollbar d-flex gap-2 px-3 mt-2">
+         {categories.map(cat => (
+           <button 
+             key={cat}
+             className={`btn btn-sm rounded-pill px-4 py-2 category-pill whitespace-nowrap ${selectedCategory === cat ? 'active' : 'inactive'}`}
+             onClick={() => setSelectedCategory(cat)}
+           >
+             {cat}
+           </button>
+         ))}
+      </div>
+
+      {/* 4. Menu Grid */}
+      <div className="container-fluid px-3 pb-5 pt-2">
+        <h6 className="fw-bold mb-3 ms-1 text-dark">{selectedCategory === 'All' ? 'Popular Dishes' : selectedCategory}</h6>
         <div className="row g-3">
           {filteredItems.map(item => (
-            <div key={item.id} className="col-12 col-md-6 col-lg-4">
-              <div className="card border-0 shadow-sm rounded-4 overflow-hidden h-100">
-                <div className="d-flex h-100">
-                  <div className="flex-grow-1 p-3 d-flex flex-column justify-content-between">
-                    <div>
-                      <div className="d-flex justify-content-between align-items-start mb-1">
-                        <span className={`badge ${item.type === 'Veg' ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger'} x-small-text px-2 py-1 rounded`}>
-                          {item.category}
-                        </span>
-                        <div className="d-flex align-items-center gap-1 text-warning small">
-                          <Star size={12} fill="currentColor" />
-                          <span className="fw-bold">{item.rating || 4.5}</span>
-                        </div>
-                      </div>
-                      <h6 className="fw-bold mb-1">{item.name}</h6>
-                      <p className="text-muted tiny-text mb-2 line-clamp-2">
-                        Delicious {item.category.toLowerCase()} dish prepared with fresh ingredients.
-                      </p>
-                      <div className="fw-bold text-primary">₹{item.price}</div>
-                    </div>
-                    
-                    <div className="mt-3">
-                       {cart[item.id] ? (
-                         <div className="d-flex align-items-center bg-light rounded-pill p-1 border" style={{ width: 'fit-content' }}>
-                            <button className="btn btn-sm btn-white rounded-circle shadow-sm p-1" onClick={() => removeFromCart(item.id)}>
-                              <Minus size={14} />
-                            </button>
-                            <span className="fw-bold mx-3 small">{cart[item.id].quantity}</span>
-                            <button className="btn btn-sm btn-white rounded-circle shadow-sm p-1" onClick={() => addToCart(item)}>
-                              <Plus size={14} />
-                            </button>
+            <div key={item.id} className="col-6 col-md-4 col-lg-3">
+              <div className="product-card h-100 rounded-4 overflow-hidden position-relative d-flex flex-column">
+                <div className="product-image-container">
+                   <img 
+                      src={item.imageUrl ? (item.imageUrl.startsWith('http') ? item.imageUrl : `http://localhost:8080${item.imageUrl}`) : "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=500&q=80"} 
+                      alt={item.name}
+                      className="w-100 h-100 object-fit-cover"
+                      onError={(e) => {
+                        e.target.onerror = null; 
+                        e.target.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=500&q=80";
+                      }}
+                   />
+                   <div className="food-type-icon">
+                      <div className={`rounded-circle ${item.type === 'Veg' ? 'bg-success' : 'bg-danger'}`} style={{ width: '8px', height: '8px' }}></div>
+                   </div>
+                   {(item.rating && item.rating >= 4.5) && (
+                      <div className="bestseller-badge">Bestseller</div>
+                   )}
+                </div>
+                
+                <div className="p-3 d-flex flex-column flex-grow-1">
+                   <div className="d-flex justify-content-between align-items-center mb-1">
+                      <h6 className="fw-bold mb-0 text-dark small text-truncate w-100">{item.name}</h6>
+                   </div>
+                   <div className="d-flex align-items-center gap-1 mb-2">
+                       <Star size={10} className="text-warning fill-warning" />
+                       <span className="tiny-text fw-bold text-muted">{item.rating || '4.5'}</span>
+                       <span className="tiny-text text-muted ms-1">(120+)</span>
+                   </div>
+                   
+                   <div className="mt-auto d-flex align-items-center justify-content-between">
+                      <div className="fw-bolder text-dark">₹{item.price}</div>
+                      
+                      {cart[item.id] ? (
+                         <div className="d-flex align-items-center quantity-control rounded-pill p-1">
+                            <button className="btn btn-sm btn-link text-white p-0 px-1" onClick={() => removeFromCart(item.id)}><Minus size={12}/></button>
+                            <span className="mx-1 small fw-bold">{cart[item.id].quantity}</span>
+                            <button className="btn btn-sm btn-link text-white p-0 px-1" onClick={() => addToCart(item)}><Plus size={12}/></button>
                          </div>
-                       ) : (
-                         <button className="btn btn-outline-primary btn-sm rounded-pill px-3 fw-bold" onClick={() => addToCart(item)}>
-                           ADD +
+                      ) : (
+                         <button className="btn btn-sm btn-add rounded-pill px-3 py-1 small" onClick={() => addToCart(item)}>
+                            ADD
                          </button>
-                       )}
-                    </div>
-                  </div>
-                  <div className="bg-light" style={{ width: '110px', minHeight: '120px', backgroundImage: 'url(https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=200&q=80)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
-                       {/* Placeholder image logic - could be dynamic */}
-                  </div>
+                      )}
+                   </div>
                 </div>
               </div>
             </div>
@@ -227,78 +230,92 @@ const MenuOrder = () => {
         </div>
       </div>
 
-      {/* Cart Bottom Sheet / Popover */}
+      {/* 5. Cart Bottom Sheet */}
       {showCart && (
-        <div className="cart-overlay position-fixed top-0 start-0 w-100 h-100" style={{ zIndex: 1050, backgroundColor: 'rgba(0,0,0,0.5)' }}>
-           <div className="cart-sheet position-absolute bottom-0 start-0 w-100 bg-white rounded-top-4 shadow-lg d-flex flex-column" style={{ maxHeight: '80vh' }}>
-              <div className="p-3 border-bottom d-flex justify-content-between align-items-center">
-                 <h5 className="fw-bold mb-0">Your Order</h5>
-                 <button className="btn btn-light rounded-circle p-1" onClick={() => setShowCart(false)}>
+        <div className="cart-overlay position-fixed top-0 start-0 w-100 h-100" style={{ zIndex: 1050, backgroundColor: 'rgba(0,0,0,0.6)' }} onClick={() => setShowCart(false)}>
+           <div className="cart-sheet position-absolute bottom-0 start-0 w-100 bg-white rounded-top-4 shadow-lg d-flex flex-column" style={{ maxHeight: '85vh' }} onClick={e => e.stopPropagation()}>
+              <div className="p-4 border-bottom d-flex justify-content-between align-items-center">
+                 <div>
+                    <h5 className="fw-bold mb-0">Your Cart</h5>
+                    <p className="text-muted tiny-text mb-0">{getCartCount()} items from {Object.keys(cart).length} dishes</p>
+                 </div>
+                 <button className="btn btn-light rounded-circle p-2" onClick={() => setShowCart(false)}>
                    <X size={20} />
                  </button>
               </div>
               
-              <div className="p-3 overflow-auto flex-grow-1">
+              <div className="p-3 overflow-auto flex-grow-1 custom-thin-scrollbar">
                  {Object.values(cart).map(item => (
-                   <div key={item.id} className="d-flex justify-content-between align-items-center mb-3">
-                      <div className="d-flex align-items-center gap-3">
-                         <div className="bg-light rounded p-2 text-primary">
-                           <Utensils size={16} />
+                   <div key={item.id} className="d-flex align-items-center mb-3 bg-light rounded-4 p-2">
+                      <img 
+                        src={item.imageUrl ? (item.imageUrl.startsWith('http') ? item.imageUrl : `http://localhost:8080${item.imageUrl}`) : "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=100&q=80"} 
+                        className="rounded-3 me-3" 
+                        style={{width: '60px', height: '60px', objectFit: 'cover'}}
+                        alt=""
+                        onError={(e) => {
+                           e.target.onerror = null; 
+                           e.target.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=100&q=80";
+                         }}
+                      />
+                      <div className="flex-grow-1">
+                         <div className="d-flex justify-content-between">
+                            <h6 className="fw-bold small mb-1">{item.name}</h6>
+                            <span className="fw-bold small">₹{item.price * item.quantity}</span>
                          </div>
-                         <div>
-                            <div className="fw-bold small">{item.name}</div>
-                            <div className="tiny-text text-muted">₹{item.price} x {item.quantity}</div>
+                         <div className="d-flex align-items-center justify-content-between mt-2">
+                            <span className="tiny-text text-muted">₹{item.price} / item</span>
+                            <div className="d-flex align-items-center bg-white rounded-pill border px-1">
+                                <button className="btn btn-sm p-1" onClick={() => removeFromCart(item.id)}><Minus size={12}/></button>
+                                <span className="mx-2 small fw-bold">{item.quantity}</span>
+                                <button className="btn btn-sm p-1" onClick={() => addToCart(item)}><Plus size={12}/></button>
+                            </div>
                          </div>
-                      </div>
-                      <div className="d-flex align-items-center gap-2">
-                            <button className="btn btn-sm btn-light rounded-circle p-1" onClick={() => removeFromCart(item.id)}>
-                              <Minus size={14} />
-                            </button>
-                            <span className="fw-bold small">{item.quantity}</span>
-                            <button className="btn btn-sm btn-light rounded-circle p-1" onClick={() => addToCart(item)}>
-                              <Plus size={14} />
-                            </button>
                       </div>
                    </div>
                  ))}
-                 {Object.keys(cart).length === 0 && (
-                   <div className="text-center py-5 text-muted">
-                     <ShoppingBag size={40} className="mb-2 opacity-50"/>
-                     <p>Your cart is empty</p>
-                   </div>
-                 )}
+                 
+                 <div className="mt-4">
+                    <label className="form-label small fw-bold text-muted text-uppercase">Cooking Instructions</label>
+                    <textarea 
+                      className="form-control bg-light border-0 rounded-3" 
+                      rows="2" 
+                      placeholder="Example: Less spicy, no onions..."
+                      value={instructions}
+                      onChange={(e) => setInstructions(e.target.value)}
+                    ></textarea>
+                 </div>
               </div>
               
-              <div className="p-3 border-top bg-light">
-                 <div className="d-flex justify-content-between mb-3">
-                    <span className="text-muted">Total Amount</span>
-                    <span className="fw-bold h5 mb-0">₹{getCartTotal()}</span>
+              <div className="p-3 bg-white border-top">
+                 <div className="d-flex justify-content-between mb-3 px-1">
+                    <span className="text-muted small">Total Payable</span>
+                    <span className="fw-bold h4 mb-0">₹{getCartTotal()}</span>
                  </div>
                  <button 
-                   className="btn btn-primary w-100 rounded-pill py-3 fw-bold shadow-sm d-flex justify-content-between px-4 align-items-center"
-                   disabled={Object.keys(cart).length === 0}
+                   className="btn btn-dark w-100 rounded-pill py-3 fw-bold shadow-lg d-flex justify-content-between px-4 align-items-center"
                    onClick={placeOrder}
                  >
-                   <span>Checkout</span>
-                   <span className="bg-white text-primary rounded px-2 py-1 small fw-bold">₹{getCartTotal()}</span>
+                   <span>Place Order</span>
+                   <span className="bg-white text-dark rounded-pill px-2 py-1 small fw-bold">PROCEED</span>
                  </button>
               </div>
            </div>
         </div>
       )}
 
-      {/* Floating Action Button for Cart if hidden */}
+      {/* 6. Floating Cart Button */}
       {!showCart && getCartCount() > 0 && (
          <div className="position-fixed bottom-0 start-0 w-100 p-3" style={{ zIndex: 1040 }}>
             <button 
-              className="btn btn-primary w-100 rounded-pill py-3 fw-bold shadow-lg d-flex justify-content-between px-4 align-items-center pulse-animation"
+              className="btn btn-dark w-100 rounded-pill py-3 fw-bold shadow-lg d-flex justify-content-between px-4 align-items-center glass-morphism border-0 text-white pulse-primary"
+              style={{ background: '#1f2937' }}
               onClick={() => setShowCart(true)}
             >
               <div className="d-flex align-items-center gap-2">
-                 <span className="bg-white text-primary rounded-circle w-6 h-6 d-flex justify-content-center align-items-center small fw-bold" style={{ width: '24px', height: '24px' }}>
+                 <span className="bg-primary text-white rounded-circle d-flex justify-content-center align-items-center small fw-bold" style={{ width: '24px', height: '24px' }}>
                    {getCartCount()}
                  </span>
-                 <span>View Cart</span>
+                 <span className="text-uppercase ls-1" style={{ fontSize: '0.9rem' }}>Place Order</span>
               </div>
               <span>₹{getCartTotal()}</span>
             </button>

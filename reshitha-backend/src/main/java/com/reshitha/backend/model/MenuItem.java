@@ -26,6 +26,9 @@ public class MenuItem {
 
     private boolean seasonal = false;
 
+    @Column(length = 1000)
+    private String imageUrl;
+
     // New fields for frontend dashboard
     private Integer sales = 0;
     private Double rating = 0.0;
@@ -115,5 +118,13 @@ public class MenuItem {
 
     public void setRating(Double rating) {
         this.rating = rating;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
     }
 }

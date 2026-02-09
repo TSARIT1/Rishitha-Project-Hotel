@@ -33,7 +33,7 @@ const Staff = () => {
 
   const fetchStaff = async () => {
     try {
-        const { default: api } = await import('../api/axiosConfig');
+        const { default: api } = await import('../services/api');
         const response = await api.get('/staff');
         if (response.data.success) {
             setStaffList(response.data.data);
@@ -51,6 +51,31 @@ const Staff = () => {
           return acc + salary;
       }, 0);
   };
+  
+  const calculatePayrollStats = () => {
+    let fixed = 0;
+    let incentives = 0;
+
+    staffList.forEach(staff => {
+        const salary = parseFloat(staff.salary.replace(/[^0-9.-]+/g,"")) || 0;
+        fixed += salary;
+        
+        // Estimate incentives based on performance
+        if (staff.performance === 'excellent') {
+            incentives += salary * 0.10; // 10% bonus
+        } else if (staff.performance === 'good') {
+            incentives += salary * 0.05; // 5% bonus
+        }
+    });
+
+    return {
+        fixed,
+        incentives,
+        total: fixed + incentives
+    };
+  };
+
+  const payrollStats = calculatePayrollStats();
 
   // Helper to format currency simply
   const formatCurrencySimple = (value) => {
@@ -125,7 +150,7 @@ const Staff = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this employee?')) {
       try {
-        const { default: api } = await import('../api/axiosConfig');
+        const { default: api } = await import('../services/api');
         const response = await api.delete(`/staff/${id}`);
         if (response.data.success) {
            setStaffList(prev => prev.filter(s => s.id !== id));
@@ -161,7 +186,7 @@ const Staff = () => {
     };
 
     try {
-        const { default: api } = await import('../api/axiosConfig');
+        const { default: api } = await import('../services/api');
         let response;
         if (isEditing && selectedStaff) {
             response = await api.put(`/staff/${selectedStaff.id}`, newEmployee);
@@ -580,27 +605,27 @@ const Staff = () => {
                     <span className="small fw-bold text-muted">Current Month Payroll</span>
                     <span className="badge bg-success-soft text-success rounded-pill px-3">On Time</span>
                   </div>
-                  <h3 className="fw-bold mb-1">₹4,25,000</h3>
+                  <h3 className="fw-bold mb-1">{formatCurrencySimple(payrollStats.total)}</h3>
                   <div className="progress rounded-pill shadow-none mb-2" style={{ height: '6px' }}>
-                    <div className="progress-bar bg-success" style={{ width: '85%' }}></div>
+                    <div className="progress-bar bg-success" style={{ width: '100%' }}></div>
                   </div>
                   <div className="d-flex justify-content-between tiny-text fw-bold text-muted">
-                    <span>Processed: ₹3.6L</span>
-                    <span>Remaining: ₹65k</span>
+                    <span>Processed: {formatCurrencySimple(payrollStats.total)}</span>
+                    <span>Remaining: ₹0</span>
                   </div>
                 </div>
                 <div className="vstack gap-2">
                   <div className="d-flex justify-content-between align-items-center p-2 small">
                     <span className="text-muted fw-medium">Fixed Salaries</span>
-                    <span className="fw-bold">₹3.80L</span>
+                    <span className="fw-bold">{formatCurrencySimple(payrollStats.fixed)}</span>
                   </div>
                   <div className="d-flex justify-content-between align-items-center p-2 small">
                     <span className="text-muted fw-medium">Incentives & Bonus</span>
-                    <span className="fw-bold text-success">+₹45k</span>
+                    <span className="fw-bold text-success">+{formatCurrencySimple(payrollStats.incentives)}</span>
                   </div>
                   <div className="d-flex justify-content-between align-items-center p-2 small border-top pt-2 mt-1">
                     <span className="fw-bold">Total Payout</span>
-                    <span className="fw-bold h6 mb-0 text-primary">₹4.25L</span>
+                    <span className="fw-bold h6 mb-0 text-primary">{formatCurrencySimple(payrollStats.total)}</span>
                   </div>
                 </div>
                 <button className="btn btn-outline-info w-100 rounded-pill mt-3 fw-bold btn-sm border-0 bg-white shadow-sm py-2">

@@ -22,6 +22,8 @@ public class Order {
 
     private String waiterName;
 
+    private String instructions;
+
     @Enumerated(EnumType.STRING)
     private OrderStatus status = OrderStatus.PENDING;
 
@@ -83,6 +85,14 @@ public class Order {
 
     public void setWaiterName(String waiterName) {
         this.waiterName = waiterName;
+    }
+
+    public String getInstructions() {
+        return instructions;
+    }
+
+    public void setInstructions(String instructions) {
+        this.instructions = instructions;
     }
 
     public OrderStatus getStatus() {

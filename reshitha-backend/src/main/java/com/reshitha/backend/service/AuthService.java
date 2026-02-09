@@ -46,8 +46,10 @@ public class AuthService {
     }
 
     public User login(LoginRequest request) {
+        System.out.println("Attempting login for: " + request.getUsernameOrEmail());
         Optional<User> userOpt = userRepository.findByUsername(request.getUsernameOrEmail());
         if (userOpt.isEmpty()) {
+            System.out.println("User not found by username, trying email...");
             userOpt = userRepository.findByEmail(request.getUsernameOrEmail());
         }
 

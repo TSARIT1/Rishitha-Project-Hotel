@@ -27,15 +27,7 @@ public class InventoryItemService {
     }
 
     public InventoryItem createItem(InventoryItem item) {
-        if (item.getStatus() == null || item.getStatus().isEmpty()) {
-            // Simple logic to determine status
-            if (item.getCurrentStock() == 0)
-                item.setStatus("Out of Stock");
-            else if (item.getCurrentStock() < item.getMinLevel())
-                item.setStatus("Low Stock");
-            else
-                item.setStatus("In Stock");
-        }
+        calculateStatus(item);
         return inventoryItemRepository.save(item);
     }
 
@@ -51,9 +43,21 @@ public class InventoryItemService {
         item.setMinLevel(itemDetails.getMinLevel());
         item.setMaxLevel(itemDetails.getMaxLevel());
         item.setExpiryDate(itemDetails.getExpiryDate());
-        item.setStatus(itemDetails.getStatus());
+
+        // Automatically calculate status based on new stock levels
+        calculateStatus(item);
 
         return inventoryItemRepository.save(item);
+    }
+
+    private void calculateStatus(InventoryItem item) {
+        if (item.getCurrentStock() <= 0) {
+            item.setStatus("Out of Stock");
+        } else if (item.getMinLevel() != null && item.getCurrentStock() <= item.getMinLevel()) {
+            item.setStatus("Low Stock");
+        } else {
+            item.setStatus("In Stock");
+        }
     }
 
     public void deleteItem(Long id) {

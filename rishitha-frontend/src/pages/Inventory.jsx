@@ -29,8 +29,7 @@ const Inventory = () => {
     unitCost: '',
     minLevel: '',
     maxLevel: '',
-    expiryDate: '',
-    status: 'In Stock'
+    expiryDate: ''
   });
 
   // State for inventory data
@@ -45,7 +44,7 @@ const Inventory = () => {
   const fetchInventory = async () => {
     try {
       setLoading(true);
-      const { default: api } = await import('../api/axiosConfig');
+      const { default: api } = await import('../services/api');
       const response = await api.get('/inventory');
       if (response.data.success) {
         setInventoryData(response.data.data);
@@ -71,10 +70,10 @@ const Inventory = () => {
     // ... keep other stats or calculate them dynamically if needed
     {
       title: 'Inventory Value',
-      value: `$${inventoryData.reduce((acc, item) => acc + (item.currentStock * item.unitCost), 0).toFixed(2)}`,
+      value: `₹${inventoryData.reduce((acc, item) => acc + (item.currentStock * item.unitCost), 0).toFixed(2)}`,
       icon: DollarSign,
       color: 'warning',
-      change: '+$2,340',
+      change: '+₹2,340',
       trend: 'up',
       subtitle: 'total value'
     },
@@ -133,8 +132,7 @@ const Inventory = () => {
       unitCost: '',
       minLevel: '',
       maxLevel: '',
-      expiryDate: '',
-      status: 'In Stock'
+      expiryDate: ''
     });
     setShowAddModal(true);
   };
@@ -151,8 +149,7 @@ const Inventory = () => {
       unitCost: '',
       minLevel: '',
       maxLevel: '',
-      expiryDate: '',
-      status: 'In Stock'
+      expiryDate: ''
     });
   };
 
@@ -177,12 +174,11 @@ const Inventory = () => {
       unitCost: parseFloat(formData.unitCost),
       minLevel: parseFloat(formData.minLevel),
       maxLevel: parseFloat(formData.maxLevel),
-      expiryDate: formData.expiryDate || null,
-      status: formData.status
+      expiryDate: formData.expiryDate || null
     };
 
     try {
-        const { default: api } = await import('../api/axiosConfig');
+        const { default: api } = await import('../services/api');
         let response;
         
         if (isEditing && selectedItem) {
@@ -192,13 +188,22 @@ const Inventory = () => {
         }
         
         if (response.data.success) {
+            const returnedItem = response.data.data;
             if (isEditing) {
-                setInventoryData(prev => prev.map(item => item.id === selectedItem.id ? response.data.data : item));
+                setInventoryData(prev => prev.map(item => item.id === selectedItem.id ? returnedItem : item));
                 alert('Item updated successfully!');
             } else {
-                setInventoryData(prev => [...prev, response.data.data]);
+                setInventoryData(prev => [...prev, returnedItem]);
                 alert('Item added successfully!');
             }
+            
+            // Automatic Alert Logic
+            if (returnedItem.status === 'Low Stock') {
+                alert(`⚠️ Warning: ${returnedItem.name} is now Low Stock! (${returnedItem.currentStock} ${returnedItem.unit})`);
+            } else if (returnedItem.status === 'Out of Stock') {
+                alert(`🚨 CRITICAL: ${returnedItem.name} is OUT OF STOCK!`);
+            }
+
             handleCloseModal();
         }
     } catch (error) {
@@ -235,7 +240,7 @@ const Inventory = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this item?')) {
       try {
-          const { default: api } = await import('../api/axiosConfig');
+          const { default: api } = await import('../services/api');
           await api.delete(`/inventory/${id}`);
           setInventoryData(prev => prev.filter(item => item.id !== id));
       } catch (error) {
@@ -403,8 +408,8 @@ const Inventory = () => {
                     </div>
                   </td>
                   <td>
-                    <div className="fw-bold text-dark small">${item.unitCost.toFixed(2)} <span className="text-muted fw-normal">/ {item.unit}</span></div>
-                    <div className="text-success small fw-bold mt-1">Total: ${(item.currentStock * item.unitCost).toFixed(2)}</div>
+                    <div className="fw-bold text-dark small">₹{item.unitCost.toFixed(2)} <span className="text-muted fw-normal">/ {item.unit}</span></div>
+                    <div className="text-success small fw-bold mt-1">Total: ₹{(item.currentStock * item.unitCost).toFixed(2)}</div>
                   </td>
                   <td className="text-center">
                     <span className={`status-pill ${item.status === 'In Stock' ? 'status-success' : 'status-warning'}`}>
@@ -472,8 +477,8 @@ const Inventory = () => {
                   <div className="col-md-6">
                     <div className="p-3 bg-light rounded-3 h-100">
                       <div className="small text-muted text-uppercase fw-bold mb-1">Financials</div>
-                      <div className="mb-2"><strong>Unit Cost:</strong> ${selectedItem.unitCost.toFixed(2)}</div>
-                      <div className="mb-0"><strong>Total Value:</strong> ${(selectedItem.currentStock * selectedItem.unitCost).toFixed(2)}</div>
+                      <div className="mb-2"><strong>Unit Cost:</strong> ₹{selectedItem.unitCost.toFixed(2)}</div>
+                      <div className="mb-0"><strong>Total Value:</strong> ₹{(selectedItem.currentStock * selectedItem.unitCost).toFixed(2)}</div>
                     </div>
                   </div>
                   <div className="col-md-6">
@@ -674,26 +679,7 @@ const Inventory = () => {
                       />
                     </div>
 
-                    {/* Status Section */}
-                    <div className="col-12 mt-4">
-                      <h6 className="fw-bold text-muted mb-3">Status</h6>
-                    </div>
 
-                    <div className="col-md-6">
-                      <label className="form-label fw-bold small text-muted text-uppercase">Status *</label>
-                      <select
-                        className="form-select rounded-pill px-3"
-                        name="status"
-                        value={formData.status}
-                        onChange={handleInputChange}
-                        required
-                      >
-                        <option value="In Stock">In Stock</option>
-                        <option value="Low Stock">Low Stock</option>
-                        <option value="Out of Stock">Out of Stock</option>
-                        <option value="Expiring Soon">Expiring Soon</option>
-                      </select>
-                    </div>
                   </div>
                 </div>
 

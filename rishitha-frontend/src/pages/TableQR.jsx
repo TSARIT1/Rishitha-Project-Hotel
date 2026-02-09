@@ -19,27 +19,41 @@ const TableQR = () => {
     tableNo: '',
     capacity: 2,
     location: '',
-    waiter: 'John',
+    waiter: '',
     status: 'Available'
   });
 
   // Table Data State
   const [tablesData, setTablesData] = useState([]);
+  const [staffList, setStaffList] = useState([]);
   
-  // Fetch Tables on component mount
+  // Fetch Tables and Staff on component mount
   useEffect(() => {
     fetchTables();
+    fetchStaff();
   }, []);
 
   const fetchTables = async () => {
     try {
-        const { default: api } = await import('../api/axiosConfig');
+        const { default: api } = await import('../services/api');
         const response = await api.get('/tables');
         if (response.data.success) {
             setTablesData(response.data.data);
         }
     } catch (error) {
         console.error("Error fetching tables:", error);
+    }
+  };
+
+  const fetchStaff = async () => {
+    try {
+        const { default: api } = await import('../services/api');
+        const response = await api.get('/staff');
+        if (response.data.success) {
+            setStaffList(response.data.data);
+        }
+    } catch (error) {
+        console.error("Error fetching staff:", error);
     }
   };
 
@@ -58,7 +72,7 @@ const TableQR = () => {
     };
 
     try {
-        const { default: api } = await import('../api/axiosConfig');
+        const { default: api } = await import('../services/api');
         const response = await api.post('/tables', newTable);
         
         if (response.data.success) {
@@ -147,7 +161,7 @@ const TableQR = () => {
     if (!selectedTableData?.id) return;
     
     try {
-        const { default: api } = await import('../api/axiosConfig');
+        const { default: api } = await import('../services/api');
         const response = await api.post(`/tables/${selectedTableData.id}/generate-qr`);
         
         if (response.data.success) {
@@ -193,7 +207,7 @@ const TableQR = () => {
       tableNo: '',
       capacity: 2,
       location: '',
-      waiter: 'John',
+      waiter: '',
       status: 'Available'
     });
   };
@@ -319,10 +333,10 @@ const TableQR = () => {
                         onChange={handleInputChange}
                         required
                       >
-                        <option value="John">John</option>
-                        <option value="Sarah">Sarah</option>
-                        <option value="Mike">Mike</option>
-                        <option value="Emma">Emma</option>
+                        <option value="">Select Waiter</option>
+                        {staffList.map(staff => (
+                            <option key={staff.id} value={staff.name}>{staff.name}</option>
+                        ))}
                       </select>
                     </div>
 

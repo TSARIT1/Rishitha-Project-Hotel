@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { 
   DollarSign, CreditCard, Wallet, Clock, 
-  Plus, Download, Printer, Filter, Eye, Edit, Trash2
+  Plus, Download, Printer, Filter, Eye, Edit, Trash2, Utensils
 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -12,6 +12,7 @@ import './Billing.css';
 const Billing = () => {
   const [fromDate, setFromDate] = useState('2023-10-10');
   const [toDate, setToDate] = useState('2023-10-15');
+  const [viewMode, setViewMode] = useState('active'); // 'active' or 'history'
   const [paymentMethod, setPaymentMethod] = useState('All Methods');
   const [billStatus, setBillStatus] = useState('All Status');
   const [showNewBillModal, setShowNewBillModal] = useState(false);
@@ -19,6 +20,10 @@ const Billing = () => {
   const [billItems, setBillItems] = useState([]);
   const [currentItem, setCurrentItem] = useState({ name: '', price: '', quantity: 1 });
   const [tables, setTables] = useState([]);
+  
+  // View Orders Modal State
+  const [showViewOrdersModal, setShowViewOrdersModal] = useState(false);
+  const [selectedTableForView, setSelectedTableForView] = useState(null);
 
   // Form data for new bill
   const [billFormData, setBillFormData] = useState({
@@ -30,52 +35,8 @@ const Billing = () => {
     paymentMethod: 'Cash'
   });
 
-  // Calculate totals
-  const subtotal = billItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const taxRate = parseFloat(billFormData.tax) || 0;
-  const tax = subtotal * (taxRate / 100); 
-  const totalAmount = subtotal + tax - (parseFloat(billFormData.discount) || 0);
-
-  const stats = [
-    {
-      title: "Today's Collection",
-      value: '$8,420',
-      icon: DollarSign,
-      color: 'warning',
-      change: '+$1,240',
-      trend: 'up',
-      subtitle: 'total revenue'
-    },
-    {
-      title: 'Cash Payments',
-      value: '$3,250',
-      icon: Wallet,
-      color: 'primary',
-      change: '38.6%',
-      trend: 'neutral',
-      subtitle: 'of total'
-    },
-    {
-      title: 'Card Payments',
-      value: '$4,120',
-      icon: CreditCard,
-      color: 'success',
-      change: '48.9%',
-      trend: 'neutral',
-      subtitle: 'of total'
-    },
-    {
-      title: 'Pending Bills',
-      value: '$1,045',
-      icon: Clock,
-      color: 'info',
-      change: '12 bills',
-      trend: 'warning',
-      subtitle: 'unpaid'
-    },
-  ];
-
   const [bills, setBills] = useState([]);
+  const [rawOrders, setRawOrders] = useState([]); // Store raw orders for filtering active tables
   const [menuItems, setMenuItems] = useState([]);
 
   useEffect(() => {
@@ -84,7 +45,7 @@ const Billing = () => {
 
   const fetchBillingData = async () => {
       try {
-        const { default: api } = await import('../api/axiosConfig');
+        const { default: api } = await import('../services/api');
         const [menuRes, ordersRes, tablesRes] = await Promise.all([
             api.get('/menu'),
             api.get('/orders'),
@@ -100,6 +61,7 @@ const Billing = () => {
         }
 
         if (ordersRes.data.success) {
+             setRawOrders(ordersRes.data.data); // Store raw data
              const mappedBills = ordersRes.data.data.map(order => ({
                  billNo: `BILL-${String(order.id).padStart(3, '0')}`,
                  customer: order.customerName,
@@ -120,6 +82,88 @@ const Billing = () => {
       }
   };
 
+
+
+  // Calculate totals
+  const subtotal = billItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const taxRate = parseFloat(billFormData.tax) || 0;
+  const tax = subtotal * (taxRate / 100); 
+  const totalAmount = subtotal + tax - (parseFloat(billFormData.discount) || 0);
+
+  // Calculate Dynamic Stats
+  const calculateStats = () => {
+    const today = new Date().toDateString();
+    
+    // Filter bills for today
+    const todaysBills = bills.filter(bill => {
+        const billDate = new Date(bill.dateTime).toDateString();
+        return billDate === today;
+    });
+
+    const todaysCollection = todaysBills.reduce((acc, bill) => acc + (bill.total || 0), 0);
+    
+    // Payment Methods (Total - All Time)
+    const cashTotal = bills.filter(b => b.paymentMethod === 'Cash').reduce((acc, b) => acc + (b.total || 0), 0);
+    const cardTotal = bills.filter(b => b.paymentMethod === 'Card').reduce((acc, b) => acc + (b.total || 0), 0);
+    const totalRevenue = cashTotal + cardTotal; // Simplified total for % calc
+
+    // Pending Bills
+    const pendingBills = bills.filter(b => b.paymentStatus === 'Pending');
+    const pendingTotal = pendingBills.reduce((acc, b) => acc + (b.total || 0), 0);
+
+    return {
+        todaysCollection,
+        cashTotal,
+        cardTotal,
+        cashPercentage: totalRevenue ? ((cashTotal / totalRevenue) * 100).toFixed(1) : 0,
+        cardPercentage: totalRevenue ? ((cardTotal / totalRevenue) * 100).toFixed(1) : 0,
+        pendingTotal,
+        pendingCount: pendingBills.length
+    };
+  };
+
+  const billStats = calculateStats();
+
+  const stats = [
+    {
+      title: "Today's Collection",
+      value: `₹${billStats.todaysCollection.toLocaleString()}`,
+      icon: DollarSign,
+      color: 'warning',
+      change: '+₹0', // Placeholder as we don't store yesterday's data yet
+      trend: 'up',
+      subtitle: 'total revenue'
+    },
+    {
+      title: 'Cash Payments',
+      value: `₹${billStats.cashTotal.toLocaleString()}`,
+      icon: Wallet,
+      color: 'primary',
+      change: `${billStats.cashPercentage}%`,
+      trend: 'neutral',
+      subtitle: 'of total'
+    },
+    {
+      title: 'Card Payments',
+      value: `₹${billStats.cardTotal.toLocaleString()}`,
+      icon: CreditCard,
+      color: 'success',
+      change: `${billStats.cardPercentage}%`,
+      trend: 'neutral',
+      subtitle: 'of total'
+    },
+    {
+      title: 'Pending Bills',
+      value: `₹${billStats.pendingTotal.toLocaleString()}`,
+      icon: Clock,
+      color: 'info',
+      change: `${billStats.pendingCount} bills`,
+      trend: 'warning',
+      subtitle: 'unpaid'
+    },
+  ];
+
+
   const paymentMethods = ['All Methods', 'Cash', 'Card', 'UPI', 'Online'];
   const statuses = ['All Status', 'Paid', 'Pending', 'Cancelled'];
 
@@ -130,6 +174,89 @@ const Billing = () => {
     const matchesStatus = billStatus === 'All Status' || bill.paymentStatus === billStatus;
     return matchesPayment && matchesStatus;
   });
+
+  // Calculate active tables from raw orders
+  const activeTables = rawOrders.reduce((acc, order) => {
+      // Filter for active statuses
+      if (['PENDING', 'PREPARING', 'READY'].includes(order.status)) {
+          // Identify table (use 0 for takeaway if null)
+          const tableNum = order.tableNumber || 'Takeaway';
+          
+          if (!acc[tableNum]) {
+              acc[tableNum] = {
+                  tableNumber: tableNum,
+                  customerName: order.customerName || 'Guest',
+                  waiterName: order.waiterName || 'App',
+                  orderIds: [],
+                  items: [],
+                  totalAmount: 0,
+                  startTime: order.orderTime,
+                  status: order.status // Use status of first order found, or derived
+              };
+          }
+          
+          acc[tableNum].orderIds.push(order.id);
+          acc[tableNum].totalAmount += (order.totalAmount || 0);
+          
+          // Aggregate items
+          if (order.items) {
+              order.items.forEach(item => {
+                  acc[tableNum].items.push({
+                      name: item.menuItem?.name || 'Item',
+                      quantity: item.quantity,
+                      price: item.priceAtOrder,
+                      total: item.priceAtOrder * item.quantity
+                  });
+              });
+          }
+      }
+      return acc;
+  }, {});
+
+  const activeTablesList = Object.values(activeTables);
+
+  const handleGenerateBill = async (tableData) => {
+      // 1. Calculate Financials
+      const subtotal = tableData.items.reduce((acc, item) => acc + (item.price * item.quantity), 0);
+      const taxRate = 5; // 5% GST standard
+      const taxAmount = subtotal * (taxRate / 100);
+      const grandTotal = subtotal + taxAmount;
+
+      // 2. Confirm
+      if (!window.confirm(`Generate bill for Table ${tableData.tableNumber}? Total: ₹${grandTotal.toFixed(2)}`)) return;
+
+      try {
+          const { default: api } = await import('../services/api');
+          
+          // 3. Update status
+          await Promise.all(tableData.orderIds.map(id => 
+              api.put(`/orders/${id}/status?status=COMPLETED`)
+          ));
+          
+          // 4. Generate PDF
+          const pdfData = {
+              billNo: `BILL-${Date.now().toString().slice(-6)}`,
+              customer: tableData.customerName,
+              tableType: tableData.tableNumber !== 'Takeaway' ? `Table ${tableData.tableNumber}` : 'Takeaway',
+              itemsDetail: tableData.items,
+              subtotal: subtotal,
+              tax: taxAmount,
+              taxRate: taxRate,
+              discount: 0,
+              total: grandTotal,
+              paymentMethod: 'Cash' // Default
+          };
+          generateInvoicePDF(pdfData);
+          
+          // 5. Refresh
+          alert('Payment Slip generated successfully!');
+          fetchBillingData();
+
+      } catch (err) {
+          console.error("Error generating bill", err);
+          alert("Failed to generate bill");
+      }
+  };
 
   const getStatusClass = (status) => {
     switch(status) {
@@ -157,6 +284,16 @@ const Billing = () => {
     });
     setBillItems([]);
     setCurrentItem({ name: '', price: '', quantity: 1, menuItemId: null });
+  };
+
+  const handleViewOrders = (table) => {
+      setSelectedTableForView(table);
+      setShowViewOrdersModal(true);
+  };
+
+  const handleCloseViewModal = () => {
+      setShowViewOrdersModal(false);
+      setSelectedTableForView(null);
   };
 
   const handleAddItem = () => {
@@ -229,7 +366,7 @@ const Billing = () => {
     };
 
     try {
-        const { default: api } = await import('../api/axiosConfig');
+        const { default: api } = await import('../services/api');
         const response = await api.post('/orders', requestPayload);
         
         if (response.data.success) {
@@ -264,95 +401,131 @@ const Billing = () => {
   const handlePrint = () => alert('Print Bills - Would open print dialog');
   const handleView = (billNo) => alert(`View Bill ${billNo} - Modal would open`);
   const handleEdit = (billNo) => alert(`Edit Bill ${billNo} - Modal would open`);
+  
   const generateInvoicePDF = (billData) => {
-    const doc = new jsPDF();
-
-    // Header
-    doc.setFontSize(22);
-    doc.setTextColor(220, 53, 69); // Danger color default
-    doc.text("RISHITHA RESTAURANT", 105, 20, null, null, "center");
-    
-    doc.setFontSize(12);
-    doc.setTextColor(100);
-    doc.text("123 Food Street, Delicious City, 560001", 105, 28, null, null, "center");
-    doc.text("Phone: +91 98765 43210 | Email: contact@rishitha.com", 105, 34, null, null, "center");
-    
-    doc.setDrawColor(200);
-    doc.line(10, 38, 200, 38);
-
-    // Bill Details
-    doc.setFontSize(14);
-    doc.setTextColor(0);
-    doc.text("INVOICE", 15, 50);
-
-    doc.setFontSize(10);
-    doc.text(`Bill No: ${billData.billNo || 'N/A'}`, 15, 60);
-    doc.text(`Date: ${new Date().toLocaleString()}`, 15, 66);
-    
-    doc.text(`Customer: ${billData.customer || 'Guest'}`, 130, 60);
-    doc.text(`Table: ${billData.tableType || 'N/A'}`, 130, 66);
-    doc.text(`Payment: ${billData.paymentMethod || 'Cash'}`, 130, 72);
-
-    // Table
-    const tableColumn = ["Item", "Price", "Qty", "Total"];
-    const tableRows = [];
-
-    // Check if items are from billData.items (array of objects) or number (from list view)
-    // If generating from list view without items detail, we can't show full list
-    // Ideally we should fetch full order details. For now, we support the new bill creation flow mostly.
-    
-    if (Array.isArray(billData.itemsDetail)) {
-        billData.itemsDetail.forEach(item => {
-            const itemData = [
-                item.name,
-                `$${parseFloat(item.price).toFixed(2)}`,
-                item.quantity,
-                `$${parseFloat(item.total).toFixed(2)}`
-            ];
-            tableRows.push(itemData);
-        });
-    }
-
-    autoTable(doc, {
-        head: [tableColumn],
-        body: tableRows,
-        startY: 80,
-        theme: 'grid',
-        headStyles: { fillColor: [220, 53, 69] },
+    const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: [80, 297] // Thermal printer width
     });
 
-    // Output Final Y
-    const finalY = doc.lastAutoTable.finalY + 10;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const centerX = pageWidth / 2;
+
+    // Helper for centered text
+    const centerText = (text, y, size = 10, font = 'normal') => {
+        doc.setFontSize(size);
+        doc.setFont(undefined, font);
+        doc.text(text, centerX, y, { align: 'center' });
+    };
+
+    // Helper for left-right text
+    const rowText = (label, value, y, size = 9, font = 'normal') => {
+        doc.setFontSize(size);
+        doc.setFont(undefined, font);
+        doc.text(label, 5, y);
+        doc.text(value, pageWidth - 5, y, { align: 'right' });
+    };
+
+    let cursorY = 10;
+
+    // Header
+    centerText("RISHITHA RESTAURANT", cursorY, 14, 'bold');
+    cursorY += 6;
+    centerText("Delicious City, 560001", cursorY, 8);
+    cursorY += 5;
+    centerText("+91 98765 43210", cursorY, 8);
+    cursorY += 8;
+
+    // Divider
+    doc.setLineDash([1, 1]);
+    doc.line(5, cursorY, pageWidth - 5, cursorY);
+    cursorY += 5;
+
+    // Title
+    centerText("PAYMENT SLIP", cursorY, 12, 'bold');
+    cursorY += 8;
+
+    // Bill Meta
+    rowText("Bill No:", billData.billNo, cursorY);
+    cursorY += 5;
+    rowText("Date:", new Date().toLocaleDateString(), cursorY);
+    cursorY += 5;
+    rowText("Time:", new Date().toLocaleTimeString(), cursorY);
+    cursorY += 5;
+    rowText("Table:", billData.tableType || 'N/A', cursorY);
+    cursorY += 5;
+    rowText("Customer:", billData.customer || 'Guest', cursorY);
+    cursorY += 8;
+
+    // Divider
+    doc.line(5, cursorY, pageWidth - 5, cursorY);
+    cursorY += 5;
+
+    // Items Header
+    doc.setFontSize(9);
+    doc.setFont(undefined, 'bold');
+    doc.text("Item", 5, cursorY);
+    doc.text("Qty", 50, cursorY, { align: 'right' }); // Adjusted for small width
+    doc.text("Amt", pageWidth - 5, cursorY, { align: 'right' });
+    cursorY += 5;
+
+    // Items List
+    doc.setFont(undefined, 'normal');
+    if (Array.isArray(billData.itemsDetail)) {
+        billData.itemsDetail.forEach(item => {
+            // Item Name (Wrap if too long)
+            const splitName = doc.splitTextToSize(item.name, 40);
+            doc.text(splitName, 5, cursorY);
+            
+            // Quantity and Total aligned with first line of name
+            doc.text(String(item.quantity), 50, cursorY, { align: 'right' });
+            doc.text((item.price * item.quantity).toFixed(2), pageWidth - 5, cursorY, { align: 'right' });
+            
+            cursorY += (splitName.length * 5) + 2;
+        });
+    }
+    
+    // Divider
+    cursorY += 2;
+    doc.line(5, cursorY, pageWidth - 5, cursorY);
+    cursorY += 6;
 
     // Totals
-    doc.setFontSize(10);
-    doc.text(`Subtotal:`, 140, finalY);
-    doc.text(`$${(billData.subtotal || 0).toFixed(2)}`, 190, finalY, null, null, "right");
+    rowText("Subtotal:", `₹${(billData.subtotal || 0).toFixed(2)}`, cursorY);
+    cursorY += 5;
+    
+    // Tax Breakdown
+    const taxVal = billData.tax || 0;
+    const cgst = taxVal / 2;
+    const sgst = taxVal / 2;
 
-    if (billData.taxRate > 0) {
-        doc.text(`Tax (${billData.taxRate}%):`, 140, finalY + 6);
-        doc.text(`$${(billData.tax || 0).toFixed(2)}`, 190, finalY + 6, null, null, "right");
-    }
+    rowText("CGST (2.5%):", `₹${cgst.toFixed(2)}`, cursorY);
+    cursorY += 5;
+    rowText("SGST (2.5%):", `₹${sgst.toFixed(2)}`, cursorY);
+    cursorY += 5;
 
     if (billData.discount > 0) {
-        doc.text(`Discount:`, 140, finalY + 12);
-        doc.text(`-$${(billData.discount || 0).toFixed(2)}`, 190, finalY + 12, null, null, "right");
+        rowText("Discount:", `-₹${(billData.discount || 0).toFixed(2)}`, cursorY);
+        cursorY += 5;
     }
 
-    doc.setFontSize(14);
+    // Grand Total
+    cursorY += 2;
     doc.setFont(undefined, 'bold');
-    doc.text(`Total:`, 140, finalY + 20);
-    doc.setTextColor(220, 53, 69);
-    doc.text(`$${(billData.total || 0).toFixed(2)}`, 190, finalY + 20, null, null, "right");
+    doc.setFontSize(14);
+    doc.text("TOTAL:", 5, cursorY);
+    doc.text(`₹${(billData.total || 0).toFixed(2)}`, pageWidth - 5, cursorY, { align: 'right' });
+    cursorY += 10;
 
-    // Footer
-    doc.setFontSize(10);
-    doc.setFont(undefined, 'normal');
-    doc.setTextColor(150);
-    doc.text("Thank you for dining with us!", 105, 280, null, null, "center");
+    // Footer Message
+    centerText("Thank you for dining with us!", cursorY, 9, 'italic');
+    cursorY += 5;
+    centerText("Visit Again!", cursorY, 9, 'italic');
 
-    doc.save(`Invoice_${billData.billNo || Date.now()}.pdf`);
+    doc.save(`${billData.billNo}.pdf`);
   };
+
 
   const handleDelete = (billNo) => {
     if (window.confirm(`Delete bill ${billNo}?`)) {
@@ -427,8 +600,86 @@ const Billing = () => {
         </div>
       </div>
 
+       {/* View Toggle Tabs */}
+       <div className="d-flex gap-2 mb-3 px-2">
+          <button 
+              className={`btn ${viewMode === 'active' ? 'btn-dark' : 'btn-light text-muted'} rounded-pill px-4 fw-bold`}
+              onClick={() => setViewMode('active')}
+          >
+              Active Dining
+          </button>
+          <button 
+              className={`btn ${viewMode === 'history' ? 'btn-dark' : 'btn-light text-muted'} rounded-pill px-4 fw-bold`}
+              onClick={() => setViewMode('history')}
+          >
+              Recent Invoices
+          </button>
+       </div>
+
       {/* Main Content Area - Scrollable */}
       <div className="flex-grow-1 overflow-auto px-2 custom-thin-scrollbar">
+        {viewMode === 'active' ? (
+             <div className="row g-3">
+                 {activeTablesList.length === 0 ? (
+                     <div className="col-12 text-center py-5 text-muted">
+                         <div className="mb-3 bg-light rounded-circle d-inline-flex p-4">
+                             <Utensils size={40} className="text-secondary opacity-50"/>
+                         </div>
+                         <h5>No Active Tables</h5>
+                         <p className="small">All tables are clear. New orders will appear here.</p>
+                     </div>
+                 ) : (
+                     activeTablesList.map(table => (
+                         <div key={table.tableNumber} className="col-12 col-md-6 col-lg-4 col-xl-3">
+                             <div className="card border-0 shadow-sm h-100 rounded-4 overflow-hidden position-relative">
+                                 <div className="card-body p-4 d-flex flex-column">
+                                     <div className="d-flex justify-content-between align-items-start mb-3">
+                                         <div>
+                                             <h5 className="fw-bold mb-0">Table {table.tableNumber}</h5>
+                                             <span className="text-muted small">{table.customerName}</span>
+                                         </div>
+                                         <span className="badge bg-success-subtle text-success px-2 py-1 rounded-pill small">Active</span>
+                                     </div>
+                                     
+                                     <div className="flex-grow-1">
+                                         <div className="d-flex justify-content-between mb-2 small text-muted">
+                                             <span>Orders</span>
+                                             <span className="fw-bold text-dark">{table.orderIds.length}</span>
+                                         </div>
+                                         <div className="d-flex justify-content-between mb-3 small text-muted">
+                                             <span>Items</span>
+                                             <span className="fw-bold text-dark">{table.items.length}</span>
+                                         </div>
+                                         <div className="p-3 bg-light rounded-3 mb-3">
+                                             <div className="d-flex justify-content-between align-items-center">
+                                                 <span className="fw-bold text-muted small text-uppercase">Total Amount</span>
+                                                 <span className="h4 mb-0 fw-bold text-primary">₹{table.totalAmount.toFixed(2)}</span>
+                                             </div>
+                                         </div>
+                                     </div>
+
+
+
+                                     <button 
+                                         className="btn btn-outline-dark w-100 rounded-pill py-2 fw-bold shadow-sm mb-2"
+                                         onClick={() => handleViewOrders(table)}
+                                     >
+                                         <Eye size={16} className="me-2"/> View Orders
+                                     </button>
+
+                                     <button 
+                                         className="btn btn-dark w-100 rounded-pill py-2 fw-bold shadow-sm"
+                                         onClick={() => handleGenerateBill(table)}
+                                     >
+                                         Generate Bill
+                                     </button>
+                                 </div>
+                             </div>
+                         </div>
+                     ))
+                 )}
+             </div>
+        ) : (
         <div className="row g-3 h-100">
           {/* Table Column */}
           <div className="col-12">
@@ -473,10 +724,10 @@ const Billing = () => {
                         <td className="text-nowrap"><span className="badge bg-secondary-subtle text-secondary-emphasis px-3">{bill.tableType}</span></td>
                         <td className="small text-muted text-nowrap">{bill.dateTime}</td>
                         <td className="text-center fw-medium">{bill.items} items</td>
-                        <td className="text-end text-nowrap">${bill.subtotal.toFixed(2)}</td>
-                        <td className="text-end text-nowrap">${bill.tax.toFixed(2)}</td>
-                        <td className="text-end text-nowrap text-danger">-${bill.discount.toFixed(2)}</td>
-                        <td className="text-end text-nowrap fw-bold text-success">${bill.total.toFixed(2)}</td>
+                        <td className="text-end text-nowrap">₹{bill.subtotal.toFixed(2)}</td>
+                        <td className="text-end text-nowrap">₹{bill.tax.toFixed(2)}</td>
+                        <td className="text-end text-nowrap text-danger">-₹{bill.discount.toFixed(2)}</td>
+                        <td className="text-end text-nowrap fw-bold text-success">₹{bill.total.toFixed(2)}</td>
                         <td className="text-center">
                           <span className="badge bg-info-subtle text-info fw-semibold border border-info-subtle px-3 py-2">{bill.paymentMethod}</span>
                         </td>
@@ -526,7 +777,7 @@ const Billing = () => {
                               </div>
                             </div>
                             <div className="text-end">
-                              <div className="fw-bold">${idx === 0 ? '3,250' : idx === 1 ? '4,120' : '1,050'}</div>
+                              <div className="fw-bold">₹{idx === 0 ? '3,250' : idx === 1 ? '4,120' : '1,050'}</div>
                               <span className="badge bg-white text-dark border tiny-text">{idx === 0 ? '38.6%' : idx === 1 ? '48.9%' : '12.5%'}</span>
                             </div>
                           </div>
@@ -535,7 +786,7 @@ const Billing = () => {
                       <div className="col-12 mt-2">
                          <div className="p-3 bg-danger text-white rounded-3 d-flex justify-content-between align-items-center shadow-sm">
                             <span className="fw-bold">Total Collection</span>
-                            <span className="h4 mb-0 fw-bold">$8,420.00</span>
+                            <span className="h4 mb-0 fw-bold">₹8,420.00</span>
                          </div>
                       </div>
                     </div>
@@ -563,11 +814,11 @@ const Billing = () => {
                       </li>
                       <li className="list-group-item d-flex justify-content-between border-0 px-0 py-2">
                         <span className="text-muted">Service Charge (5%)</span>
-                        <span className="fw-bold">$420.00</span>
+                        <span className="fw-bold">₹420.00</span>
                       </li>
                       <li className="list-group-item mt-3 pt-3 border-top border-2 d-flex justify-content-between px-0">
                         <span className="h6 fw-bold mb-0">Total Tax & Charges</span>
-                        <span className="h5 fw-bold text-info mb-0">$1,933.60</span>
+                        <span className="h5 fw-bold text-info mb-0">₹1,933.60</span>
                       </li>
                     </ul>
                     <div className="alert alert-info border-0 mt-3 tiny-text mb-0">
@@ -580,6 +831,7 @@ const Billing = () => {
             </div>
           </div>
         </div>
+        )}
       </div>
 
       {/* New Bill Modal */}
@@ -625,7 +877,7 @@ const Billing = () => {
                               <select className="form-select" name="name" value={currentItem.name} onChange={handleItemInputChange}>
                                  <option value="">Select Item...</option>
                                  {menuItems.map(item => (
-                                   <option key={item.id} value={item.name}>{item.name} (${item.price})</option>
+                                   <option key={item.id} value={item.name}>{item.name} (₹{item.price})</option>
                                  ))}
                               </select>
                             </div>
@@ -662,9 +914,9 @@ const Billing = () => {
                               billItems.map(item => (
                                 <tr key={item.id}>
                                   <td className="ps-3 fw-medium">{item.name}</td>
-                                  <td className="text-end">${item.price.toFixed(2)}</td>
+                                  <td className="text-end">₹{item.price.toFixed(2)}</td>
                                   <td className="text-center">{item.quantity}</td>
-                                  <td className="text-end fw-bold">${item.total.toFixed(2)}</td>
+                                  <td className="text-end fw-bold">₹{item.total.toFixed(2)}</td>
                                   <td className="text-end pe-3">
                                     <button type="button" className="btn btn-link text-danger p-0 border-0" onClick={() => handleRemoveItem(item.id)}>
                                       <Trash2 size={16} />
@@ -700,15 +952,15 @@ const Billing = () => {
                             <div className="card-body p-3 d-flex flex-column justify-content-center">
                                 <div className="d-flex justify-content-between mb-2 small">
                                     <span className="text-muted">Subtotal:</span>
-                                    <span className="fw-bold">${subtotal.toFixed(2)}</span>
+                                    <span className="fw-bold">₹{subtotal.toFixed(2)}</span>
                                 </div>
                                 <div className="d-flex justify-content-between mb-3 small">
                                     <span className="text-muted">Tax ({billFormData.tax}%):</span>
-                                    <span className="fw-bold">${tax.toFixed(2)}</span>
+                                    <span className="fw-bold">₹{tax.toFixed(2)}</span>
                                 </div>
                                 <div className="border-top border-secondary border-opacity-25 pt-2 d-flex justify-content-between align-items-center">
                                     <span className="h6 mb-0 fw-bold">Total:</span>
-                                    <span className="h3 mb-0 fw-bold text-primary">${totalAmount.toFixed(2)}</span>
+                                    <span className="h3 mb-0 fw-bold text-primary">₹{totalAmount.toFixed(2)}</span>
                                 </div>
                             </div>
                         </div>
@@ -726,6 +978,76 @@ const Billing = () => {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      
+      {/* View Orders Modal */}
+      {showViewOrdersModal && selectedTableForView && (
+        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }} onClick={handleCloseViewModal}>
+          <div className="modal-dialog modal-dialog-centered modal-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-content border-0 shadow-lg alert-modal-content">
+              <div className="modal-header bg-dark text-white border-0">
+                <h5 className="modal-title fw-bold d-flex align-items-center gap-2">
+                  <Eye size={24} />
+                  Table {selectedTableForView.tableNumber} - Orders
+                </h5>
+                <button type="button" className="btn-close btn-close-white" onClick={handleCloseViewModal}></button>
+              </div>
+              <div className="modal-body p-4">
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                      <div>
+                          <h6 className="fw-bold mb-0">{selectedTableForView.customerName}</h6>
+                          <div className="text-muted small">Started: {new Date(selectedTableForView.startTime).toLocaleTimeString()}</div>
+                      </div>
+                      <span className="badge bg-success-subtle text-success px-3 py-2 rounded-pill">Active Dining</span>
+                  </div>
+
+                  <div className="table-responsive rounded-3 border mb-3">
+                    <table className="table table-hover align-middle mb-0">
+                        <thead className="table-light">
+                            <tr>
+                                <th className="ps-3 py-2">Item</th>
+                                <th className="text-end py-2">Price</th>
+                                <th className="text-center py-2">Qty</th>
+                                <th className="text-end pe-3 py-2">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {selectedTableForView.items.map((item, idx) => (
+                                <tr key={idx}>
+                                    <td className="ps-3 fw-medium">{item.name}</td>
+                                    <td className="text-end">₹{item.price.toFixed(2)}</td>
+                                    <td className="text-center">{item.quantity}</td>
+                                    <td className="text-end pe-3 fw-bold">₹{item.total.toFixed(2)}</td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                  </div>
+
+                  <div className="d-flex justify-content-end align-items-center bg-light p-3 rounded-3">
+                      <div className="text-end">
+                          <div className="text-muted small text-uppercase fw-bold">Total Amount</div>
+                          <div className="h3 mb-0 fw-bold text-primary">₹{selectedTableForView.totalAmount.toFixed(2)}</div>
+                      </div>
+                  </div>
+              </div>
+              <div className="modal-footer border-0 p-4 pt-0">
+                  <button type="button" className="btn btn-light rounded-pill px-4 fw-bold" onClick={handleCloseViewModal}>Close</button>
+                  <button 
+                      type="button" 
+                      className="btn btn-dark rounded-pill px-4 fw-bold" 
+                      onClick={() => {
+                          handleCloseViewModal();
+                          handleGenerateBill(selectedTableForView);
+                      }}
+                  >
+                      Generate Bill Now
+                  </button>
+              </div>
             </div>
           </div>
         </div>

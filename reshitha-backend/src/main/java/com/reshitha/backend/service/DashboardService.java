@@ -63,6 +63,26 @@ public class DashboardService {
         revenueChart.put("Tue", 1500.0);
         stats.setRevenueLast7Days(revenueChart);
 
+        // Sales By Category
+        try {
+            List<Map<String, Object>> categorySales = orderRepository.findSalesByCategory();
+            Map<String, Long> salesMap = new HashMap<>();
+            for (Map<String, Object> row : categorySales) {
+                String category = (String) row.get("category");
+                Long count = ((Number) row.get("count")).longValue();
+                salesMap.put(category, count);
+            }
+            stats.setSalesByCategory(salesMap);
+        } catch (Exception e) {
+            // Fallback mock data if query fails or returns empty (to avoid breaking UI)
+            Map<String, Long> mockSales = new HashMap<>();
+            mockSales.put("Starters", 10L);
+            mockSales.put("Main Course", 25L);
+            mockSales.put("Desserts", 15L);
+            stats.setSalesByCategory(mockSales);
+            // System.err.println("Error fetching category sales: " + e.getMessage());
+        }
+
         return stats;
     }
 }

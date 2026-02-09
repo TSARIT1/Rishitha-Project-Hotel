@@ -25,16 +25,44 @@ const Suppliers = () => {
     phone: ''
   });
 
+
+
   useEffect(() => {
     fetchSuppliers();
+    fetchInventory();
   }, []);
+
+  const [inventoryItems, setInventoryItems] = useState([]);
+  const [inventoryStats, setInventoryStats] = useState({
+      totalValue: 0,
+      lowStockItems: 0,
+      totalCategories: 0
+  });
+
+  const fetchInventory = async () => {
+    try {
+        const { default: api } = await import('../services/api');
+        const response = await api.get('/inventory');
+        if (response.data.success) {
+            const items = response.data.data;
+            setInventoryItems(items);
+            const totalValue = items.reduce((sum, item) => sum + ((item.currentStock || 0) * (item.unitCost || 0)), 0);
+            const lowStockItems = items.filter(item => (item.currentStock || 0) <= (item.minLevel || 0)).length;
+            setInventoryStats(prev => ({ ...prev, totalValue, lowStockItems }));
+        }
+    } catch (error) {
+        console.error("Error fetching inventory for stats:", error);
+    }
+  };
 
   const fetchSuppliers = async () => {
     try {
-        const { default: api } = await import('../api/axiosConfig');
+        const { default: api } = await import('../services/api');
         const response = await api.get('/suppliers');
         if (response.data.success) {
             setSuppliers(response.data.data);
+            const categories = new Set(response.data.data.map(s => s.category)).size;
+            setInventoryStats(prev => ({ ...prev, totalCategories: categories }));
         }
     } catch (error) {
         console.error("Error fetching suppliers:", error);
@@ -87,7 +115,7 @@ const Suppliers = () => {
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this supplier?')) {
       try {
-        const { default: api } = await import('../api/axiosConfig');
+        const { default: api } = await import('../services/api');
         const response = await api.delete(`/suppliers/${id}`);
         if (response.data.success) {
            setSuppliers(prev => prev.filter(s => s.id !== id));
@@ -110,7 +138,7 @@ const Suppliers = () => {
     };
 
     try {
-        const { default: api } = await import('../api/axiosConfig');
+        const { default: api } = await import('../services/api');
         let response;
         if (isEditing && selectedSupplier) {
             response = await api.put(`/suppliers/${selectedSupplier.id}`, supplierPayload);
@@ -135,10 +163,34 @@ const Suppliers = () => {
   };
 
   const stats = [
-    { title: 'Active Suppliers', value: suppliers.length, icon: Truck, color: 'primary', trend: '+2 this month' },
-    { title: 'Open POs', value: '7', icon: ShoppingBag, color: 'warning', trend: '₹2.4L value' },
-    { title: 'Inventory Value', value: '₹5.8L', icon: Package, color: 'success', trend: 'Healthy level' },
-    { title: 'On-time Delivery', value: '94%', icon: Timer, color: 'info', trend: 'Excellent' },
+    { 
+      title: 'Active Suppliers', 
+      value: suppliers.filter(s => s.status === 'Active').length, 
+      icon: Truck, 
+      color: 'primary',
+      trend: `+${suppliers.filter(s => new Date(s.createdAt) > new Date(Date.now() - 30*24*60*60*1000)).length} this month` 
+    },
+    { 
+      title: 'Low Stock Items', 
+      value: inventoryStats.lowStockItems, 
+      icon: AlertCircle, 
+      color: 'warning',
+      trend: 'Needs reorder'
+    },
+    { 
+      title: 'Inventory Value', 
+      value: `₹${(inventoryStats.totalValue / 1000).toFixed(1)}k`, 
+      icon: Package, 
+      color: 'success',
+      trend: 'Current stock'
+    },
+    { 
+      title: 'Supplier Categories', 
+      value: inventoryStats.totalCategories, 
+      icon: Timer, 
+      color: 'info',
+      trend: 'Diverse network' 
+    },
   ];
 
   const filteredSuppliers = suppliers.filter(sup => {
@@ -304,35 +356,38 @@ const Suppliers = () => {
             <div className="card border-0 shadow-sm rounded-4 h-100">
               <div className="card-header bg-white border-bottom-0 py-4 px-4 d-flex justify-content-between align-items-center">
                 <h5 className="fw-bold mb-0 d-flex align-items-center gap-2">
-                  <ShoppingBag size={20} className="text-primary" />
-                  Recent Purchase Orders
+                  <AlertCircle size={20} className="text-danger" />
+                  Low Stock Alerts
                 </h5>
-                <button className="btn btn-link btn-sm text-decoration-none fw-bold p-0">View All Orders</button>
+                <button className="btn btn-link btn-sm text-decoration-none fw-bold p-0">View Inventory</button>
               </div>
               <div className="card-body p-4 pt-0">
                 <div className="vstack gap-3">
-                  {[
-                    { po: 'PO-9842', supplier: 'Ocean Catch', date: 'Today', amount: '₹14,500', status: 'Pending' },
-                    { po: 'PO-9840', supplier: 'Fresh Produce Co.', date: 'Yesterday', amount: '₹8,400', status: 'Shipped' },
-                    { po: 'PO-9838', supplier: 'Elite Meats', date: '6 Jan', amount: '₹32,000', status: 'Delivered' }
-                  ].map((order, i) => (
-                    <div key={i} className="d-flex align-items-center p-3 rounded-4 bg-light bg-opacity-50 border border-transparent hover-border-primary transition-all">
-                      <div className="flex-grow-1">
-                        <div className="d-flex align-items-center gap-2">
-                          <span className="fw-bold text-dark">{order.po}</span>
-                          <span className="tiny-text text-muted">• {order.date}</span>
+                  {inventoryItems.filter(item => (item.currentStock || 0) <= (item.minLevel || 0)).length === 0 ? (
+                      <p className="text-muted text-center py-3">No low stock items. Good job!</p>
+                  ) : (
+                      inventoryItems
+                        .filter(item => (item.currentStock || 0) <= (item.minLevel || 0))
+                        .slice(0, 5)
+                        .map((item, i) => (
+                        <div key={i} className="d-flex align-items-center p-3 rounded-4 bg-light bg-opacity-50 border border-transparent hover-border-danger transition-all">
+                          <div className="flex-grow-1">
+                            <div className="d-flex align-items-center gap-2">
+                              <span className="fw-bold text-dark">{item.name}</span>
+                              <span className="tiny-text text-muted">• {item.category}</span>
+                            </div>
+                            <div className="small text-muted">Supplier: {item.supplier || 'Unknown'}</div>
+                          </div>
+                          <div className="text-end me-3">
+                            <div className="fw-bold text-danger">{item.currentStock} {item.unit}</div>
+                            <div className="tiny-text text-muted">Min: {item.minLevel}</div>
+                          </div>
+                          <span className="status-pill bg-danger-soft text-danger x-small-text fw-bold">
+                            Low Stock
+                          </span>
                         </div>
-                        <div className="small text-muted">{order.supplier}</div>
-                      </div>
-                      <div className="text-end me-3">
-                        <div className="fw-bold text-dark">{order.amount}</div>
-                      </div>
-                      <span className={`status-pill ${order.status === 'Delivered' ? 'type-new' : order.status === 'Pending' ? 'type-vip' : 'bg-info-soft text-info'} x-small-text fw-bold`}>
-                        {order.status}
-                      </span>
-                      <ChevronRight size={18} className="text-muted ms-2" />
-                    </div>
-                  ))}
+                      ))
+                  )}
                 </div>
               </div>
             </div>
@@ -348,11 +403,11 @@ const Suppliers = () => {
               </div>
               <div className="card-body p-4 pt-1">
                 <div className="vstack gap-3">
-                  {[
-                    { name: 'Metro Wholesale', rating: 4.9, score: 98, color: 'success' },
-                    { name: 'Fresh Produce Co.', rating: 4.8, score: 95, color: 'primary' },
-                    { name: 'Dairy Pure', rating: 4.7, score: 92, color: 'info' }
-                  ].map((partner, i) => (
+                  {suppliers
+                    .filter(s => s.rating)
+                    .sort((a, b) => b.rating - a.rating)
+                    .slice(0, 3)
+                    .map((partner, i) => (
                     <div key={i} className="p-3 bg-white bg-opacity-75 rounded-4 border border-white">
                       <div className="d-flex justify-content-between align-items-center mb-2">
                         <span className="fw-bold small text-dark">{partner.name}</span>
@@ -362,20 +417,22 @@ const Suppliers = () => {
                         </div>
                       </div>
                       <div className="progress rounded-pill shadow-none" style={{ height: '6px' }}>
-                        <div className={`progress-bar bg-${partner.color}`} style={{ width: `${partner.score}%` }}></div>
+                        <div className={`progress-bar bg-${partner.rating >= 4.5 ? 'success' : partner.rating >= 4.0 ? 'primary' : 'warning'}`} style={{ width: `${(partner.rating / 5) * 100}%` }}></div>
                       </div>
                       <div className="d-flex justify-content-between tiny-text fw-bold text-muted mt-1">
                         <span className="text-uppercase ls-1">Delivery Score</span>
-                        <span>{partner.score}%</span>
+                        <span>{Math.round((partner.rating / 5) * 100)}%</span>
                       </div>
                     </div>
                   ))}
                 </div>
-                <div className="mt-4 p-3 bg-warning-soft rounded-4 border border-warning-subtle text-center">
-                   <AlertCircle size={20} className="text-warning mb-2" />
-                   <div className="fw-bold text-dark small">Vendor Review Due</div>
-                   <p className="tiny-text text-muted mb-0">Ocean Catch performance dropped by 12%</p>
-                </div>
+                {inventoryItems.some(i => (i.currentStock || 0) <= (i.minLevel || 0)) && (
+                    <div className="mt-4 p-3 bg-warning-soft rounded-4 border border-warning-subtle text-center">
+                       <AlertCircle size={20} className="text-warning mb-2" />
+                       <div className="fw-bold text-dark small">Restock Required</div>
+                       <p className="tiny-text text-muted mb-0">{inventoryItems.filter(i => (i.currentStock || 0) <= (i.minLevel || 0)).length} items need attention</p>
+                    </div>
+                )}
               </div>
             </div>
           </div>

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   TrendingUp, Package, DollarSign, Users, 
   ShoppingCart, AlertCircle, QrCode,
@@ -36,7 +37,10 @@ ChartJS.register(
   Filler
 );
 
+import AIAssistant from '../components/AI/AIAssistant';
+
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [dashboardStats, setDashboardStats] = useState(null);
   const [recentOrders, setRecentOrders] = useState([]);
   const [lowStockItems, setLowStockItems] = useState([]);
@@ -47,7 +51,7 @@ const Dashboard = () => {
 
   const fetchDashboardData = async () => {
     try {
-      const { default: api } = await import('../api/axiosConfig');
+      const { default: api } = await import('../services/api');
       
       const [statsRes, ordersRes, inventoryRes] = await Promise.all([
         api.get('/dashboard/stats'),
@@ -67,8 +71,8 @@ const Dashboard = () => {
       }
 
       if (inventoryRes.data.success) {
-         // Filter low stock items: quantity <= minQuantity (assuming minQuantity exists, or default < 10)
-         const lowStock = inventoryRes.data.data.filter(item => item.quantity <= (item.minQuantity || 10));
+         // Filter low stock items: currentStock <= minLevel
+         const lowStock = inventoryRes.data.data.filter(item => (item.currentStock || 0) <= (item.minLevel || 0));
          setLowStockItems(lowStock);
       }
 
@@ -101,12 +105,12 @@ const Dashboard = () => {
         },
         {
           title: "Today's Revenue",
-          value: `$${dashboardStats.todayRevenue || 0}`,
+          value: `₹${dashboardStats.todayRevenue || 0}`,
           change: 'Daily',
           trend: 'up',
           icon: DollarSign,
           color: 'warning',
-          subtitle: `Total: $${dashboardStats.totalRevenue || 0}`
+          subtitle: `Total: ₹${dashboardStats.totalRevenue || 0}`
         },
         {
           title: 'Tables Occupied',
@@ -132,12 +136,13 @@ const Dashboard = () => {
   const stats = getStatsData();
 
   // Revenue Analytics Chart Data
+  // Revenue Analytics Chart Data
   const revenueData = {
-    labels: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
+    labels: dashboardStats?.revenueLast7Days ? Object.keys(dashboardStats.revenueLast7Days) : ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
     datasets: [
       {
         label: 'Revenue',
-        data: [6500, 7200, 6800, 8400, 7800, 9200, 8420],
+        data: dashboardStats?.revenueLast7Days ? Object.values(dashboardStats.revenueLast7Days) : [0, 0, 0, 0, 0, 0, 0],
         borderColor: '#e63946',
         backgroundColor: 'rgba(230, 57, 70, 0.1)',
         fill: true,
@@ -168,7 +173,7 @@ const Dashboard = () => {
         displayColors: false,
         callbacks: {
           label: function(context) {
-            return '$' + context.parsed.y.toLocaleString();
+            return '₹' + context.parsed.y.toLocaleString();
           }
         }
       },
@@ -181,7 +186,7 @@ const Dashboard = () => {
         },
         ticks: {
           callback: function(value) {
-            return '$' + value.toLocaleString();
+            return '₹' + value.toLocaleString();
           }
         }
       },
@@ -194,11 +199,12 @@ const Dashboard = () => {
   };
 
   // Sales by Category Chart Data
+  // Sales by Category Chart Data
   const categoryData = {
-    labels: ['Starters', 'Main Course', 'Desserts', 'Beverages', 'Specials'],
+    labels: dashboardStats?.salesByCategory ? Object.keys(dashboardStats.salesByCategory) : ['Starters', 'Main Course', 'Desserts', 'Beverages', 'Specials'],
     datasets: [
       {
-        data: [25, 35, 15, 15, 10],
+        data: dashboardStats?.salesByCategory ? Object.values(dashboardStats.salesByCategory) : [0, 0, 0, 0, 0],
         backgroundColor: [
           '#e63946',
           '#f4a261',
@@ -303,19 +309,19 @@ const Dashboard = () => {
                     recentOrders.map((order) => (
                     <tr key={order.id}>
                         <td><span className="order-id">#{order.id}</span></td>
-                        <td>{order.diningTable ? `Table ${order.diningTable.tableNo}` : 'Takeaway'}</td>
-                        <td>{new Date().toLocaleTimeString()}</td> {/* Ideally backend provides timestamp */}
-                        <td>{order.items ? order.items.length : 0} items</td>
-                        <td className="amount">${order.totalAmount}</td>
+                        <td>{order.tableNumber ? `Table ${order.tableNumber}` : order.diningTable ? `Table ${order.diningTable.tableNo}` : 'Takeaway'}</td>
+                        <td>{order.orderTime ? new Date(order.orderTime).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : new Date().toLocaleTimeString()}</td>
+                        <td>{order.totalItemsCount || (order.items ? order.items.length : 0)} items</td>
+                        <td className="amount">₹{order.totalAmount}</td>
                         <td>
-                        <span className={`status-badge status-${order.status.toLowerCase()}`}>
+                        <span className={`status-badge status-${order.status ? order.status.toLowerCase() : 'pending'}`}>
                             {order.status}
                         </span>
                         </td>
                     </tr>
                     ))
                 ) : (
-                    <tr><td colSpan="6" className="text-center p-3">No recent orders</td></tr>
+                    <tr><td colSpan="6" className="text-center p-3">No recent orders. Start selling!</td></tr>
                 )}
               </tbody>
             </table>
@@ -337,7 +343,7 @@ const Dashboard = () => {
                     </div>
                     <div className="alert-content">
                     <h4>{item.name}</h4>
-                    <p>{item.quantity} / {item.minQuantity || 10} required</p>
+                    <p>{item.currentStock} {item.unit} / {item.minLevel} Min</p>
                     </div>
                     <span className={`alert-status status-low`}>
                     Low
@@ -348,7 +354,7 @@ const Dashboard = () => {
                 <div className="p-4 text-center text-muted">Stock levels are healthy!</div>
             )}
           </div>
-          <button className="btn-warning-full" onClick={() => window.location.href='/inventory'}>View Inventory</button>
+          <button className="btn-warning-full" onClick={() => navigate('/inventory')}>View Inventory</button>
         </div>
       </div>
 
@@ -356,31 +362,31 @@ const Dashboard = () => {
       <div className="quick-actions-card">
         <h3>Quick Actions</h3>
         <div className="quick-actions-grid">
-          <button className="quick-action-btn btn-blue" onClick={() => alert('New Order')}>
+          <button className="quick-action-btn btn-blue" onClick={() => navigate('/orders')}>
             <ShoppingCart size={20} />
             <span>New Order</span>
           </button>
-          <button className="quick-action-btn btn-green" onClick={() => alert('Generate Bill')}>
+          <button className="quick-action-btn btn-green" onClick={() => navigate('/billing')}>
             <DollarSign size={20} />
             <span>Generate Bill</span>
           </button>
-          <button className="quick-action-btn btn-yellow" onClick={() => alert('Add Stock')}>
+          <button className="quick-action-btn btn-yellow" onClick={() => navigate('/inventory')}>
             <Package size={20} />
             <span>Add Stock</span>
           </button>
-          <button className="quick-action-btn btn-cyan" onClick={() => alert('Print QR Codes')}>
+          <button className="quick-action-btn btn-cyan" onClick={() => navigate('/tables')}>
             <QrCode size={20} />
             <span>Print QR Codes</span>
           </button>
-          <button className="quick-action-btn btn-gray" onClick={() => alert('Add Staff')}>
+          <button className="quick-action-btn btn-gray" onClick={() => navigate('/staff')}>
             <UserCog size={20} />
             <span>Add Staff</span>
           </button>
-          <button className="quick-action-btn btn-red" onClick={() => alert('View Reports')}>
+          <button className="quick-action-btn btn-red" onClick={() => navigate('/reports')}>
             <BarChart3 size={20} />
             <span>View Reports</span>
           </button>
-          <button className="quick-action-btn btn-dark" onClick={() => alert('New Reservation')}>
+          <button className="quick-action-btn btn-dark" onClick={() => navigate('/reservations')}>
             <CalendarCheck size={20} />
             <span>New Reservation</span>
           </button>
@@ -391,35 +397,35 @@ const Dashboard = () => {
       <div className="quick-access-card">
         <h3>Quick Access to Other Management Sections</h3>
         <div className="quick-access-grid">
-          <div className="access-card" onClick={() => window.location.href = '/suppliers'}>
+          <div className="access-card" onClick={() => navigate('/suppliers')}>
             <div className="access-icon icon-yellow">
               <Truck size={32} />
             </div>
             <h4>Suppliers</h4>
             <button className="access-btn">Access</button>
           </div>
-          <div className="access-card" onClick={() => window.location.href = '/reservations'}>
+          <div className="access-card" onClick={() => navigate('/reservations')}>
             <div className="access-icon icon-cyan">
               <CalendarCheck size={32} />
             </div>
             <h4>Reservations</h4>
             <button className="access-btn">Access</button>
           </div>
-          <div className="access-card" onClick={() => window.location.href = '/expenses'}>
+          <div className="access-card" onClick={() => navigate('/expenses')}>
             <div className="access-icon icon-red">
               <DollarSign size={32} />
             </div>
             <h4>Expenses</h4>
             <button className="access-btn">Access</button>
           </div>
-          <div className="access-card" onClick={() => window.location.href = '/kitchen'}>
+          <div className="access-card" onClick={() => navigate('/kitchen')}>
             <div className="access-icon icon-green">
               <ChefHat size={32} />
             </div>
             <h4>Kitchen Display</h4>
             <button className="access-btn">Access</button>
           </div>
-          <div className="access-card" onClick={() => window.location.href = '/settings'}>
+          <div className="access-card" onClick={() => navigate('/settings')}>
             <div className="access-icon icon-gray">
               <Settings size={32} />
             </div>
@@ -428,6 +434,8 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+      
+      <AIAssistant contextData={dashboardStats || {}} contextName="Dashboard Overview" />
     </div>
   );
 };

@@ -6,12 +6,12 @@
   --primary-dark: #c1121f;
   --primary-light: #ff6b7a;
   --primary-gradient: linear-gradient(135deg, #e63946 0%, #c1121f 100%);
-  
+
   /* Secondary Colors - Golden Accent */
   --secondary: #f4a261;
   --secondary-dark: #e76f51;
   --secondary-light: #f7b787;
-  
+
   /* Neutral Colors */
   --dark: #1a1a2e;
   --dark-secondary: #16213e;
@@ -19,7 +19,7 @@
   --light: #f8f9fa;
   --light-secondary: #e9ecef;
   --white: #ffffff;
-  
+
   /* Status Colors */
   --success: #06d6a0;
   --success-light: #7df3e1;
@@ -29,26 +29,26 @@
   --danger-light: #f48fb1;
   --info: #118ab2;
   --info-light: #06d6a0;
-  
+
   /* Shadows */
   --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
   --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
   --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.16);
   --shadow-xl: 0 16px 48px rgba(0, 0, 0, 0.20);
-  
+
   /* Glassmorphism */
   --glass-bg: rgba(255, 255, 255, 0.1);
   --glass-border: rgba(255, 255, 255, 0.18);
-  
+
   /* Transitions */
   --transition-fast: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-slow: 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  
+
   /* Spacing */
   --sidebar-width: 280px;
   --header-height: 80px;
-  
+
   /* Border Radius */
   --radius-sm: 8px;
   --radius-md: 12px;
@@ -144,6 +144,7 @@ code {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -155,6 +156,7 @@ code {
     opacity: 0;
     transform: translateX(-30px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -166,6 +168,7 @@ code {
     opacity: 0;
     transform: translateX(30px);
   }
+
   to {
     opacity: 1;
     transform: translateX(0);
@@ -173,9 +176,12 @@ code {
 }
 
 @keyframes pulse {
-  0%, 100% {
+
+  0%,
+  100% {
     opacity: 1;
   }
+
   50% {
     opacity: 0.5;
   }
@@ -185,6 +191,7 @@ code {
   0% {
     background-position: -1000px 0;
   }
+
   100% {
     background-position: 1000px 0;
   }
@@ -208,12 +215,10 @@ code {
 
 /* Loading Skeleton */
 .skeleton {
-  background: linear-gradient(
-    90deg,
-    var(--light-secondary) 0%,
-    var(--light) 50%,
-    var(--light-secondary) 100%
-  );
+  background: linear-gradient(90deg,
+      var(--light-secondary) 0%,
+      var(--light) 50%,
+      var(--light-secondary) 100%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: var(--radius-md);
@@ -231,4 +236,138 @@ code {
     --sidebar-width: 0;
     --header-height: 70px;
   }
+}
+
+/* Dark Mode Variables */
+/* Dark Mode Variables */
+[data-theme="dark"] {
+  /* Neutral Colors - Premium Dark Palette */
+  --dark: #F1F5F9;
+  /* Slate 100 - High Contrast Text */
+  --dark-secondary: #CBD5E1;
+  /* Slate 300 - Secondary Text */
+  --dark-tertiary: #94A3B8;
+  /* Slate 400 - Muted Text */
+
+  --light: #0F172A;
+  /* Slate 900 - Main Background */
+  --light-secondary: #1E293B;
+  /* Slate 800 - Input/Component Background */
+  --white: #1E293B;
+  /* Slate 800 - Card Background */
+
+  /* Primary Adjustments for Dark Mode (Brighter/Softer) */
+  --primary: #F87171;
+  /* Softer Red */
+  --primary-gradient: linear-gradient(135deg, #EF4444 0%, #B91C1C 100%);
+
+  /* Adjust Glassmorphism for Dark Mode */
+  --glass-bg: rgba(30, 41, 59, 0.7);
+  /* Slate 800 with opacity */
+  --glass-border: rgba(255, 255, 255, 0.08);
+
+  /* Adjust Shadows - Stronger for depth in dark mode */
+  --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.16);
+  --shadow-md: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
+}
+
+[data-theme="dark"] body {
+  background: #0F172A;
+  /* Slate 900 */
+  color: var(--dark);
+}
+
+/* Card & Surface overrides */
+[data-theme="dark"] .card,
+[data-theme="dark"] .dashboard-card,
+[data-theme="dark"] .glass-card {
+  background-color: var(--light-secondary);
+  /* Slate 800 */
+  border-color: rgba(255, 255, 255, 0.05);
+  /* Subtle border */
+  box-shadow: var(--shadow-sm);
+}
+
+/* Inputs & Form Controls */
+[data-theme="dark"] .form-control,
+[data-theme="dark"] .form-select,
+[data-theme="dark"] .input-group-text,
+[data-theme="dark"] .btn-light {
+  background-color: #334155 !important;
+  /* Slate 700 */
+  color: var(--dark);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .form-control:focus,
+[data-theme="dark"] .form-select:focus {
+  background-color: #334155 !important;
+  border-color: var(--primary);
+  color: var(--dark);
+  box-shadow: 0 0 0 2px rgba(248, 113, 113, 0.2);
+}
+
+/* Table Headers */
+[data-theme="dark"] .table thead th,
+[data-theme="dark"] .data-table thead th {
+  background-color: #334155;
+  /* Slate 700 */
+  color: var(--dark);
+  border-bottom-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Utility overrides */
+[data-theme="dark"] .bg-light {
+  background-color: #334155 !important;
+  /* Slate 700 - replacing light bg */
+}
+
+[data-theme="dark"] .bg-white {
+  background-color: var(--light-secondary) !important;
+  /* Slate 800 */
+  color: var(--dark);
+}
+
+/* Text Overrides - Fixing "disgusting" low contrast */
+[data-theme="dark"] .text-muted {
+  color: #94A3B8 !important;
+  /* Slate 400 - much readable */
+}
+
+[data-theme="dark"] .text-dark {
+  color: var(--dark) !important;
+}
+
+[data-theme="dark"] h1,
+[data-theme="dark"] h2,
+[data-theme="dark"] h3,
+[data-theme="dark"] h4,
+[data-theme="dark"] h5,
+[data-theme="dark"] h6 {
+  color: #F8FAFC;
+  /* Slate 50 */
+}
+
+/* Borders */
+[data-theme="dark"] .border,
+[data-theme="dark"] .border-top,
+[data-theme="dark"] .border-bottom,
+[data-theme="dark"] .border-end,
+[data-theme="dark"] .border-start {
+  border-color: rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Alert Items & Access Cards */
+[data-theme="dark"] .alert-item,
+[data-theme="dark"] .access-card {
+  background: #334155;
+  /* Slate 700 */
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+[data-theme="dark"] .dashboard-card:hover,
+[data-theme="dark"] .analytics-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--primary);
 }

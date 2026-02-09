@@ -1,9 +1,30 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Users, Crown, Star, RefreshCw, Plus, Download, 
   Search, Eye, Edit, Trash2, TrendingUp, Calendar
 } from 'lucide-react';
+import { 
+  Chart as ChartJS, 
+  CategoryScale, 
+  LinearScale, 
+  BarElement, 
+  Title, 
+  Tooltip, 
+  Legend,
+  Filler
+} from 'chart.js';
+import { Bar } from 'react-chartjs-2';
 import './Customers.css';
+
+ChartJS.register(
+  CategoryScale, 
+  LinearScale, 
+  BarElement, 
+  Title, 
+  Tooltip, 
+  Legend,
+  Filler
+);
 
 const Customers = () => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -12,6 +33,9 @@ const Customers = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
   
   // Form data for new customer
   const [customerFormData, setCustomerFormData] = useState({
@@ -23,27 +47,79 @@ const Customers = () => {
   });
 
   // Sample customers data
-  const [customersData, setCustomersData] = useState([
-    { id: 'C001', name: 'John Smith', contact: '+1-555-0101', email: 'john.smith@email.com', type: 'VIP', visits: 45, spending: 2340.50, lastVisit: '2026-01-04', preferredTable: 12, loyaltyPoints: 2340 },
-    { id: 'C002', name: 'Emma Johnson', contact: '+1-555-0102', email: 'emma.j@email.com', type: 'Regular', visits: 28, spending: 1456.80, lastVisit: '2026-01-03', preferredTable: 5, loyaltyPoints: 1456 },
-    { id: 'C003', name: 'Michael Brown', contact: '+1-555-0103', email: 'michael.b@email.com', type: 'VIP', visits: 52, spending: 3120.00, lastVisit: '2026-01-05', preferredTable: 8, loyaltyPoints: 3120 },
-    { id: 'C004', name: 'Sarah Davis', contact: '+1-555-0104', email: 'sarah.davis@email.com', type: 'Regular', visits: 15, spending: 780.25, lastVisit: '2026-01-02', preferredTable: 3, loyaltyPoints: 780 },
-    { id: 'C005', name: 'David Wilson', contact: '+1-555-0105', email: 'david.w@email.com', type: 'New', visits: 3, spending: 156.90, lastVisit: '2026-01-05', preferredTable: 7, loyaltyPoints: 156 },
-    { id: 'C006', name: 'Lisa Anderson', contact: '+1-555-0106', email: 'lisa.a@email.com', type: 'VIP', visits: 38, spending: 2890.40, lastVisit: '2026-01-04', preferredTable: 15, loyaltyPoints: 2890 },
-    { id: 'C007', name: 'James Taylor', contact: '+1-555-0107', email: 'james.t@email.com', type: 'Regular', visits: 22, spending: 1234.60, lastVisit: '2026-01-03', preferredTable: 10, loyaltyPoints: 1234 },
-    { id: 'C008', name: 'Jennifer Martinez', contact: '+1-555-0108', email: 'jennifer.m@email.com', type: 'Regular', visits: 19, spending: 945.30, lastVisit: '2026-01-05', preferredTable: 6, loyaltyPoints: 945 },
-    { id: 'C009', name: 'Robert Garcia', contact: '+1-555-0109', email: 'robert.g@email.com', type: 'VIP', visits: 41, spending: 2567.80, lastVisit: '2026-01-04', preferredTable: 14, loyaltyPoints: 2567 },
-    { id: 'C010', name: 'Mary Rodriguez', contact: '+1-555-0110', email: 'mary.r@email.com', type: 'Regular', visits: 17, spending: 823.50, lastVisit: '2026-01-02', preferredTable: 4, loyaltyPoints: 823 },
-    { id: 'C011', name: 'William Lee', contact: '+1-555-0111', email: 'william.l@email.com', type: 'New', visits: 2, spending: 98.40, lastVisit: '2026-01-05', preferredTable: 9, loyaltyPoints: 98 },
-    { id: 'C012', name: 'Patricia White', contact: '+1-555-0112', email: 'patricia.w@email.com', type: 'VIP', visits: 47, spending: 3456.70, lastVisit: '2026-01-05', preferredTable: 18, loyaltyPoints: 3456 },
-    { id: 'C013', name: 'Charles Harris', contact: '+1-555-0113', email: 'charles.h@email.com', type: 'Regular', visits: 25, spending: 1567.20, lastVisit: '2026-01-03', preferredTable: 11, loyaltyPoints: 1567 },
-    { id: 'C014', name: 'Linda Clark', contact: '+1-555-0114', email: 'linda.c@email.com', type: 'Regular', visits: 20, spending: 1089.90, lastVisit: '2026-01-04', preferredTable: 2, loyaltyPoints: 1089 },
-    { id: 'C015', name: 'Thomas Lewis', contact: '+1-555-0115', email: 'thomas.l@email.com', type: 'New', visits: 4, spending: 234.80, lastVisit: '2026-01-05', preferredTable: 13, loyaltyPoints: 234 },
-  ]);
+  const [customersData, setCustomersData] = useState([]);
+  const [visitChartData, setVisitChartData] = useState({
+      labels: [],
+      datasets: []
+  });
+
+  // Fetch Customers on component mount
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+        const { default: api } = await import('../services/api');
+        const [customersRes, ordersRes] = await Promise.all([
+            api.get('/customers'),
+            api.get('/orders')
+        ]);
+
+        if (customersRes.data.success) {
+            setCustomersData(customersRes.data.data);
+        }
+
+        if (ordersRes.data.success) {
+            processVisitData(ordersRes.data.data);
+        }
+
+    } catch (error) {
+        console.error("Error fetching data:", error);
+    }
+  };
+
+  const processVisitData = (orders) => {
+      // Get last 7 days
+      const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      const last7Days = [];
+      const dataPoints = [];
+      
+      for (let i = 6; i >= 0; i--) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          const dayName = days[d.getDay()];
+          const dateStr = d.toLocaleDateString(); // e.g., 10/10/2023 or local format
+           
+          // Label: "Mon" or "Mon 10/10"
+          last7Days.push(dayName);
+          
+          // Count visits for this day
+          // Assuming orderTime is ISO string or interpretable by Date
+          const count = orders.filter(order => {
+             const orderDate = new Date(order.orderTime).toDateString();
+             return orderDate === d.toDateString();
+          }).length;
+          
+          dataPoints.push(count);
+      }
+
+      setVisitChartData({
+          labels: last7Days,
+          datasets: [
+              {
+                  label: 'Customer Visits',
+                  data: dataPoints,
+                  backgroundColor: 'rgba(239, 68, 68, 0.8)', // Primary/Brand Red
+                  borderRadius: 6,
+              }
+          ]
+      });
+  };
 
   const stats = [
-    { icon: Users, label: 'Total Customers', value: '1,245', color: 'info' },
-    { icon: Crown, label: 'VIP Customers', value: '42', color: 'warning' },
+    { icon: Users, label: 'Total Customers', value: customersData.length, color: 'info' },
+    { icon: Crown, label: 'VIP Customers', value: customersData.filter(c => c.type === 'VIP').length, color: 'warning' },
     { icon: Star, label: 'Avg. Rating', value: '4.8/5', color: 'success' },
     { icon: RefreshCw, label: 'Return Rate', value: '68%', color: 'primary' },
   ];
@@ -53,7 +129,7 @@ const Customers = () => {
       customer.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       customer.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
       customer.contact.includes(searchTerm) ||
-      customer.id.toLowerCase().includes(searchTerm.toLowerCase());
+      (customer.customerId && customer.customerId.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesType = customerTypeFilter === 'All Customer Types' || customer.type === customerTypeFilter;
     return matchesSearch && matchesType;
   });
@@ -79,6 +155,14 @@ const Customers = () => {
   };
 
   const handleAddCustomer = () => {
+    setIsEditing(false);
+    setCustomerFormData({
+      name: '',
+      email: '',
+      contact: '',
+      type: 'Regular',
+      preferredTable: ''
+    });
     setShowAddModal(true);
   };
 
@@ -102,16 +186,16 @@ const Customers = () => {
     }));
   };
 
-  const handleSubmitCustomer = (e) => {
+  const handleSubmitCustomer = async (e) => {
     e.preventDefault();
     
     // Get current date
     const today = new Date();
     const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
     
-    // Create new customer
+    // Create new customer payload
     const newCustomer = {
-      id: `C${String(customersData.length + 1).padStart(3, '0')}`,
+      customerId: `C${String(customersData.length + 1).padStart(3, '0')}`,
       name: customerFormData.name,
       contact: customerFormData.contact,
       email: customerFormData.email,
@@ -123,11 +207,29 @@ const Customers = () => {
       loyaltyPoints: 0
     };
 
-    // Add to customers list
-    setCustomersData(prev => [...prev, newCustomer]);
-    
-    // Close modal and reset form
-    handleCloseModal();
+    try {
+        const { default: api } = await import('../services/api');
+        
+        let response;
+        if (isEditing && selectedCustomer) {
+            // Update existing customer
+            response = await api.put(`/customers/${selectedCustomer.id}`, newCustomer);
+            if (response.data.success) {
+                 setCustomersData(prev => prev.map(c => c.id === selectedCustomer.id ? response.data.data : c));
+                 handleCloseModal();
+            }
+        } else {
+            // Create new customer
+            response = await api.post('/customers', newCustomer);
+            if (response.data.success) {
+                setCustomersData(prev => [...prev, response.data.data]);
+                handleCloseModal();
+            }
+        }
+    } catch (error) {
+        console.error("Error adding customer:", error);
+        alert('Failed to add customer.');
+    }
   };
 
   const handleExport = () => {
@@ -135,16 +237,42 @@ const Customers = () => {
   };
 
   const handleViewCustomer = (id) => {
-    alert(`View customer ${id} - Modal would open here`);
+    const customer = customersData.find(c => c.id === id);
+    if (customer) {
+        setSelectedCustomer(customer);
+        setShowViewModal(true);
+    }
   };
 
   const handleEditCustomer = (id) => {
-    alert(`Edit customer ${id} - Modal would open here`);
+    const customer = customersData.find(c => c.id === id);
+    if (customer) {
+        setSelectedCustomer(customer);
+        setCustomerFormData({
+            name: customer.name,
+            email: customer.email,
+            contact: customer.contact,
+            type: customer.type,
+            preferredTable: customer.preferredTable || ''
+        });
+        setIsEditing(true);
+        setShowAddModal(true);
+    }
   };
 
-  const handleDeleteCustomer = (id) => {
+  const handleDeleteCustomer = async (id) => {
     if (window.confirm('Are you sure you want to delete this customer?')) {
-      setCustomersData(prev => prev.filter(customer => customer.id !== id));
+      try {
+          const { default: api } = await import('../services/api');
+          const response = await api.delete(`/customers/${id}`);
+          
+          if (response.data.success) {
+              setCustomersData(prev => prev.filter(customer => customer.id !== id));
+          }
+      } catch (error) {
+          console.error("Error deleting customer:", error);
+          alert('Failed to delete customer.');
+      }
     }
   };
 
@@ -209,8 +337,9 @@ const Customers = () => {
                 <div className="modal-content border-0 shadow-lg">
                   <div className="modal-header bg-success text-white border-0">
                     <h5 className="modal-title fw-bold d-flex align-items-center gap-2">
+
                       <Plus size={24} />
-                      Add New Customer
+                      {isEditing ? 'Edit Customer' : 'Add New Customer'}
                     </h5>
                     <button type="button" className="btn-close btn-close-white" onClick={handleCloseModal}></button>
                   </div>
@@ -316,13 +445,81 @@ const Customers = () => {
                       </button>
                       <button type="submit" className="btn btn-success rounded-pill px-4 fw-bold d-flex align-items-center gap-2">
                         <Plus size={18} />
-                        Add Customer
+                        {isEditing ? 'Update Customer' : 'Add Customer'}
                       </button>
                     </div>
                   </form>
                 </div>
               </div>
             </div>
+          )}
+
+          {/* View Customer Modal */}
+          {showViewModal && selectedCustomer && (
+             <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 10000 }} onClick={() => setShowViewModal(false)}>
+               <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
+                 <div className="modal-content border-0 shadow-lg">
+                   <div className="modal-header bg-info text-white border-0">
+                     <h5 className="modal-title fw-bold d-flex align-items-center gap-2">
+                       <Eye size={24} />
+                       Customer Details
+                     </h5>
+                     <button type="button" className="btn-close btn-close-white" onClick={() => setShowViewModal(false)}></button>
+                   </div>
+                   <div className="modal-body p-4">
+                     <div className="text-center mb-4">
+                        <div className="d-inline-flex justify-content-center align-items-center bg-primary-soft text-primary rounded-circle mb-3" style={{ width: '80px', height: '80px' }}>
+                            <span className="h1 fw-bold mb-0">{selectedCustomer.name.charAt(0)}</span>
+                        </div>
+                        <h4 className="fw-bold">{selectedCustomer.name}</h4>
+                        <span className={`badge ${selectedCustomer.type === 'VIP' ? 'bg-warning' : 'bg-secondary'} px-3 py-2 rounded-pill`}>
+                            {selectedCustomer.type}
+                        </span>
+                     </div>
+                     
+                     <div className="row g-3">
+                        <div className="col-6">
+                            <div className="p-3 bg-light rounded-3 text-center h-100">
+                                <div className="text-muted small fw-bold text-uppercase">Total Spending</div>
+                                <div className="h4 fw-bold text-success mb-0">${selectedCustomer.spending.toFixed(2)}</div>
+                            </div>
+                        </div>
+                         <div className="col-6">
+                            <div className="p-3 bg-light rounded-3 text-center h-100">
+                                <div className="text-muted small fw-bold text-uppercase">Total Visits</div>
+                                <div className="h4 fw-bold text-info mb-0">{selectedCustomer.visits}</div>
+                            </div>
+                        </div>
+                        <div className="col-12">
+                             <ul className="list-group list-group-flush border rounded-3">
+                                <li className="list-group-item d-flex justify-content-between align-items-center py-3">
+                                    <span className="text-muted fw-medium">Email</span>
+                                    <span className="fw-bold text-dark">{selectedCustomer.email}</span>
+                                </li>
+                                <li className="list-group-item d-flex justify-content-between align-items-center py-3">
+                                    <span className="text-muted fw-medium">Phone</span>
+                                    <span className="fw-bold text-dark">{selectedCustomer.contact}</span>
+                                </li>
+                                <li className="list-group-item d-flex justify-content-between align-items-center py-3">
+                                    <span className="text-muted fw-medium">Last Visit</span>
+                                    <span className="fw-bold text-dark">{new Date(selectedCustomer.lastVisit).toLocaleDateString()}</span>
+                                </li>
+                                <li className="list-group-item d-flex justify-content-between align-items-center py-3">
+                                    <span className="text-muted fw-medium">Preferred Table</span>
+                                    <span className="fw-bold text-dark">Table {selectedCustomer.preferredTable}</span>
+                                </li>
+                             </ul>
+                        </div>
+                     </div>
+                   </div>
+                   <div className="modal-footer border-0 p-4 pt-0 justify-content-center">
+                     <button type="button" className="btn btn-light rounded-pill px-4 fw-bold w-100" onClick={() => setShowViewModal(false)}>
+                       Close
+                     </button>
+                   </div>
+                 </div>
+               </div>
+             </div>
           )}
 
           <div className="card-body px-4 pt-0">
@@ -393,7 +590,7 @@ const Customers = () => {
                     <tr key={customer.id}>
                       <td className="ps-4">
                         <span className="badge bg-primary-soft text-primary fw-bold p-2 px-3 border border-primary-subtle rounded-pill">
-                          {customer.id}
+                          {customer.customerId || customer.id}
                         </span>
                       </td>
                       <td>
@@ -472,12 +669,43 @@ const Customers = () => {
                     </h5>
                  </div>
                  <div className="card-body px-4 pb-4">
-                    <div className="chart-area-placeholder bg-white-50 rounded-4 d-flex align-items-center justify-content-center p-5 border border-dashed border-2">
-                       <div className="text-center">
-                          <TrendingUp size={48} className="text-muted opacity-25 mb-3" />
-                          <p className="text-muted small fw-medium mb-0">Analytics Visualization Module</p>
-                          <span className="tiny-text text-muted text-uppercase fw-bold ls-1">Historical Data Integration Active</span>
-                       </div>
+                    <div className="chart-area-placeholder bg-white rounded-4 p-3 border border-light" style={{ height: '300px' }}>
+                       <Bar 
+                           data={visitChartData} 
+                           options={{
+                               responsive: true,
+                               maintainAspectRatio: false,
+                               plugins: {
+                                   legend: {
+                                       position: 'top',
+                                       align: 'end',
+                                       labels: {
+                                           usePointStyle: true,
+                                            boxWidth: 8
+                                       }
+                                   },
+                                   title: {
+                                       display: false,
+                                   }
+                               },
+                               scales: {
+                                   y: {
+                                       beginAtZero: true,
+                                       grid: {
+                                           color: '#f0f0f0',
+                                       },
+                                       ticks: {
+                                           stepSize: 1
+                                       }
+                                   },
+                                   x: {
+                                       grid: {
+                                           display: false
+                                       }
+                                   }
+                               }
+                           }} 
+                       />
                     </div>
                  </div>
               </div>

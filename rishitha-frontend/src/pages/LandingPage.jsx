@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { 
   QrCode, Utensils, Calendar, Users, Star, 
@@ -18,7 +18,7 @@ const LandingPage = () => {
     date: '',
     time: '',
     guests: '2',
-    type: 'Table'
+    area: 'Standard Table'
   });
 
   const navigate = useNavigate();
@@ -66,6 +66,22 @@ const LandingPage = () => {
   const [showRatingSuccess, setShowRatingSuccess] = useState(false);
   const [showNamePopup, setShowNamePopup] = useState(false);
   const [raterName, setRaterName] = useState('');
+  const [activeJobs, setActiveJobs] = useState([]);
+
+  useEffect(() => {
+    const fetchActiveJobs = async () => {
+        try {
+            const { default: api } = await import('../services/api');
+            const response = await api.get('/jobs/active');
+            if (response.data.success) {
+                setActiveJobs(response.data.data);
+            }
+        } catch (error) {
+            console.error("Error fetching active jobs", error);
+        }
+    };
+    fetchActiveJobs();
+  }, []);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -75,10 +91,40 @@ const LandingPage = () => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 5000);
+    
+    // Create reservation object matching backend model
+    const reservationData = {
+        guestName: bookingFormData.name,
+        phone: bookingFormData.phone,
+        guests: parseInt(bookingFormData.guests),
+        area: bookingFormData.area,
+        date: bookingFormData.date,
+        time: bookingFormData.time,
+        status: 'CONFIRMED'
+    };
+
+    try {
+        const { default: api } = await import('../services/api');
+        const response = await api.post('/reservations', reservationData);
+        
+        if (response.data.success) {
+            setShowSuccess(true);
+            setBookingFormData({
+                name: '',
+                phone: '',
+                guests: '2',
+                area: 'Standard Table',
+                date: '',
+                time: ''
+            });
+            setTimeout(() => setShowSuccess(false), 5000);
+        }
+    } catch (error) {
+        console.error("Booking failed", error);
+        alert("Failed to book reservation: " + (error.response?.data?.message || error.message));
+    }
   };
 
   const handleRatingSubmit = (e) => {
@@ -95,6 +141,57 @@ const LandingPage = () => {
       setFeedback('');
       setRaterName('');
     }, 5000);
+  };
+
+  /* Applcation Logic ported from Careers.jsx */
+  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+  const [selectedJob, setSelectedJob] = useState(null);
+  const [applicationData, setApplicationData] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    education: '',
+    address: '',
+    resume: null
+  });
+
+  const handleApplyClick = (job) => {
+    setSelectedJob(job);
+    setIsApplyModalOpen(true);
+  };
+
+  const handleAppChange = (e) => {
+    const { name, value, files } = e.target;
+    if (name === 'resume') {
+        setApplicationData(prev => ({ ...prev, resume: files[0] }));
+    } else {
+        setApplicationData(prev => ({ ...prev, [name]: value }));
+    }
+  };
+
+  const handleAppSubmit = async (e) => {
+      e.preventDefault();
+      const formData = new FormData();
+      formData.append('fullName', applicationData.fullName);
+      formData.append('email', applicationData.email);
+      formData.append('phone', applicationData.phone);
+      formData.append('education', applicationData.education);
+      formData.append('address', applicationData.address);
+      formData.append('jobTitle', selectedJob.title);
+      formData.append('resume', applicationData.resume);
+
+      try {
+          const { default: api } = await import('../services/api');
+          const response = await api.post('/candidates/apply', formData);
+          if(response.data.success) {
+              alert('Application submitted successfully!');
+              setIsApplyModalOpen(false);
+              setApplicationData({ fullName: '', email: '', phone: '', education: '', address: '', resume: null });
+          }
+      } catch (error) {
+          console.error("Application failed", error);
+          alert("Failed to submit application: " + (error.response?.data?.message || "Unknown error"));
+      }
   };
 
   return (
@@ -264,26 +361,33 @@ const LandingPage = () => {
           </ScrollReveal>
 
           <div className="careers-grid">
-            {[
-              { title: 'Head Chef', department: 'Kitchen', type: 'Full Time', location: 'Main Branch', salary: '₹45k - ₹60k' },
-              { title: 'Waitstaff', department: 'Service', type: 'Part Time', location: 'Main Branch', salary: '₹12k - ₹15k' },
-              { title: 'Restaurant Manager', department: 'Management', type: 'Full Time', location: 'Downtown', salary: '₹50k - ₹70k' }
-            ].map((job, index) => (
-              <ScrollReveal key={index} animation="fade-up" delay={index * 100} className="career-card glass">
-                <div className="career-icon">
-                  <Briefcase size={24} />
-                </div>
-                <div className="career-info">
-                  <h3>{job.title}</h3>
-                  <div className="career-meta">
-                    <span><Users size={14} /> {job.department}</span>
-                    <span><Clock size={14} /> {job.type}</span>
-                    <span><MapPin size={14} /> {job.location}</span>
+            {activeJobs.length > 0 ? (
+              activeJobs.map((job, index) => (
+                <ScrollReveal key={index} animation="fade-up" delay={index * 100} className="career-card glass">
+                  <div className="career-icon">
+                    <Briefcase size={24} />
                   </div>
-                  <button className="btn-apply">Apply Now <ArrowRight size={16} /></button>
+                  <div className="career-info">
+                    <h3>{job.title}</h3>
+                    <div className="career-meta">
+                      <span><Users size={14} /> {job.department}</span>
+                      <span><Clock size={14} /> {job.type}</span>
+                      <span><MapPin size={14} /> {job.location}</span>
+                    </div>
+                    <button 
+                      className="btn-apply"
+                      onClick={() => handleApplyClick(job)}
+                    >
+                      Apply Now <ArrowRight size={16} />
+                    </button>
+                  </div>
+                </ScrollReveal>
+              ))
+            ) : (
+                <div className="text-center w-100 py-5">
+                    <p className="text-muted">We currently have no open positions. Please check back soon!</p>
                 </div>
-              </ScrollReveal>
-            ))}
+            )}
           </div>
         </div>
       </section>
@@ -345,12 +449,16 @@ const LandingPage = () => {
                     </div>
                     <div className="form-group">
                       <label>Number of Guests</label>
-                      <select name="guests" value={bookingFormData.guests} onChange={handleInputChange}>
-                        {[1, 2, 3, 4, 5, 6, 8, 10, 15].map(n => (
-                          <option key={n} value={n}>{n} Persons</option>
-                        ))}
-                        <option value="20+">20+ Persons</option>
-                      </select>
+                      <input 
+                        type="number" 
+                        name="guests" 
+                        placeholder="Ex: 2"
+                        className="form-control"
+                        min="1"
+                        required
+                        value={bookingFormData.guests}
+                        onChange={handleInputChange}
+                      />
                     </div>
                   </div>
 
@@ -367,48 +475,28 @@ const LandingPage = () => {
                     </div>
                     <div className="form-group">
                       <label>Time Slot</label>
-                      <select name="time" value={bookingFormData.time} onChange={handleInputChange} required>
-                        <option value="">Select Time</option>
-                        <option>12:00 PM</option>
-                        <option>01:30 PM</option>
-                        <option>06:00 PM</option>
-                        <option>07:30 PM</option>
-                        <option>09:00 PM</option>
-                      </select>
+                      <input 
+                        type="time" 
+                        name="time" 
+                        className="form-control"
+                        value={bookingFormData.time} 
+                        onChange={handleInputChange} 
+                        required 
+                      />
                     </div>
                   </div>
 
                   <div className="form-group">
-                    <label>Booking Type</label>
-                    <div className="radio-group">
-                      <label className={`radio-label ${bookingFormData.type === 'Table' ? 'active' : ''}`}>
-                        <input 
-                          type="radio" 
-                          name="type" 
-                          value="Table" 
-                          checked={bookingFormData.type === 'Table'}
-                          onChange={handleInputChange}
-                        /> Table
-                      </label>
-                      <label className={`radio-label ${bookingFormData.type === 'Party' ? 'active' : ''}`}>
-                        <input 
-                          type="radio" 
-                          name="type" 
-                          value="Party"
-                          checked={bookingFormData.type === 'Party'}
-                          onChange={handleInputChange}
-                        /> Party / Event
-                      </label>
-                      <label className={`radio-label ${bookingFormData.type === 'Other' ? 'active' : ''}`}>
-                        <input 
-                          type="radio" 
-                          name="type" 
-                          value="Other"
-                          checked={bookingFormData.type === 'Other'}
-                          onChange={handleInputChange}
-                        /> Other
-                      </label>
-                    </div>
+                    <label>Area / Venue</label>
+                    <select name="area" value={bookingFormData.area} onChange={handleInputChange} className="form-select">
+                        <option>Standard Table</option>
+                        <option>Window Seat</option>
+                        <option>Party Area</option>
+                        <option>VIP Lounge</option>
+                        <option>Private Room</option>
+                        <option>Grand Banquet</option>
+                        <option>Candle Light</option>
+                    </select>
                   </div>
 
                   <button type="submit" className="btn-primary w-100">
@@ -538,6 +626,113 @@ const LandingPage = () => {
               <button className="btn-secondary" onClick={() => setShowNamePopup(false)}>Cancel</button>
               <button className="btn-primary" onClick={handleFinalRatingSubmit}>Submit</button>
             </div>
+          </div>
+        </div>
+      )}
+      {/* Apply Job Modal */}
+      {isApplyModalOpen && selectedJob && (
+        <div className="modal-overlay" style={{zIndex: 9999}}>
+          <div className="modal-content glass-card border-0 shadow-lg p-4" style={{ maxWidth: '600px', width: '90%', margin: 'auto', background: 'white' }}>
+            <div className="d-flex justify-content-between align-items-center mb-4">
+              <h5 className="fw-bold mb-0 d-flex align-items-center gap-2">
+                <Briefcase className="text-primary" size={24} />
+                Apply for {selectedJob.title}
+              </h5>
+              <button type="button" onClick={() => setIsApplyModalOpen(false)} className="btn btn-link text-muted p-0">
+                <X size={24} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleAppSubmit}>
+              <div className="row g-3 mb-3">
+                <div className="col-12 col-md-6">
+                  <label className="form-label small fw-bold text-muted text-uppercase ls-1">Full Name</label>
+                  <input
+                    type="text"
+                    name="fullName"
+                    className="form-control bg-light border-0 shadow-none fw-semibold"
+                    value={applicationData.fullName}
+                    onChange={handleAppChange}
+                    required
+                  />
+                </div>
+                <div className="col-12 col-md-6">
+                  <label className="form-label small fw-bold text-muted text-uppercase ls-1">Email</label>
+                  <input
+                    type="email"
+                    name="email"
+                    className="form-control bg-light border-0 shadow-none fw-semibold"
+                    value={applicationData.email}
+                    onChange={handleAppChange}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="row g-3 mb-3">
+                <div className="col-12 col-md-6">
+                  <label className="form-label small fw-bold text-muted text-uppercase ls-1">Phone</label>
+                  <input
+                    type="tel"
+                    name="phone"
+                    className="form-control bg-light border-0 shadow-none fw-semibold"
+                    value={applicationData.phone}
+                    onChange={handleAppChange}
+                    required
+                  />
+                </div>
+                <div className="col-12 col-md-6">
+                  <label className="form-label small fw-bold text-muted text-uppercase ls-1">Resume (File)</label>
+                  <input
+                    type="file"
+                    name="resume"
+                    className="form-control bg-light border-0 shadow-none fw-semibold"
+                    onChange={handleAppChange}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="mb-3">
+                <label className="form-label small fw-bold text-muted text-uppercase ls-1">Education</label>
+                <textarea
+                  name="education"
+                  className="form-control bg-light border-0 shadow-none fw-semibold"
+                  rows="2"
+                  value={applicationData.education}
+                  onChange={handleAppChange}
+                  required
+                ></textarea>
+              </div>
+
+              <div className="mb-4">
+                <label className="form-label small fw-bold text-muted text-uppercase ls-1">Address</label>
+                <textarea
+                  name="address"
+                  className="form-control bg-light border-0 shadow-none fw-semibold"
+                  rows="2"
+                  value={applicationData.address}
+                  onChange={handleAppChange}
+                  required
+                ></textarea>
+              </div>
+
+              <div className="d-flex gap-2 justify-content-end">
+                <button 
+                  type="button" 
+                  className="btn btn-light border-0 fw-semibold px-4"
+                  onClick={() => setIsApplyModalOpen(false)}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  className="btn btn-primary fw-semibold px-4 shadow-sm"
+                >
+                  Submit Application
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

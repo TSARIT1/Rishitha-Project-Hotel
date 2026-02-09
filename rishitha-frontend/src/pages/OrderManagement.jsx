@@ -45,7 +45,7 @@ const OrderManagement = () => {
 
   const fetchData = async () => {
       try {
-          const { default: api } = await import('../api/axiosConfig');
+          const { default: api } = await import('../services/api');
           const [menuRes, ordersRes, staffRes] = await Promise.all([
               api.get('/menu'),
               api.get('/orders'),
@@ -207,7 +207,7 @@ const OrderManagement = () => {
     };
 
     try {
-        const { default: api } = await import('../api/axiosConfig');
+        const { default: api } = await import('../services/api');
         const response = await api.post('/orders', orderPayload);
         
         if (response.data.success) {

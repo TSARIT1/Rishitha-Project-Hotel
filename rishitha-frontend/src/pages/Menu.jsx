@@ -10,6 +10,10 @@ const MenuManagement = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [availabilityFilter, setAvailabilityFilter] = useState('All Availability');
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showViewModal, setShowViewModal] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   
   // Form data for new menu item
   const [menuFormData, setMenuFormData] = useState({
@@ -18,7 +22,8 @@ const MenuManagement = () => {
     price: '',
     cost: '',
     available: true,
-    seasonal: false
+    seasonal: false,
+    imageUrl: ''
   });
 
   // Menu items data
@@ -30,7 +35,7 @@ const MenuManagement = () => {
 
   const fetchMenuItems = async () => {
     try {
-        const { default: api } = await import('../api/axiosConfig');
+        const { default: api } = await import('../services/api');
         const response = await api.get('/menu');
         if (response.data.success) {
             // Calculate margin for each item for display
@@ -82,6 +87,8 @@ const MenuManagement = () => {
 
   const handleCloseModal = () => {
     setShowAddModal(false);
+    setIsEditing(false);
+    setEditingId(null);
     // Reset form
     setMenuFormData({
       name: '',
@@ -89,7 +96,8 @@ const MenuManagement = () => {
       price: '',
       cost: '',
       available: true,
-      seasonal: false
+      seasonal: false,
+      imageUrl: ''
     });
   };
 
@@ -99,6 +107,28 @@ const MenuManagement = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+        const { default: api } = await import('../services/api');
+        // Needs a dedicated upload endpoint - assuming /uploads or similar
+        // For now, let's assume we created /api/uploads in backend
+        const response = await api.post('/uploads', formData);
+        
+        if (response.data.success) {
+            setMenuFormData(prev => ({ ...prev, imageUrl: response.data.data }));
+        }
+    } catch (error) {
+        console.error("Upload failed", error);
+        alert("Failed to upload image");
+    }
   };
 
   const handleSubmitMenuItem = async (e) => {
@@ -118,20 +148,29 @@ const MenuManagement = () => {
       sales: 0,
       rating: 0,
       available: menuFormData.available,
-      seasonal: menuFormData.seasonal
+      available: menuFormData.available,
+      seasonal: menuFormData.seasonal,
+      imageUrl: menuFormData.imageUrl
     };
 
     try {
-        const { default: api } = await import('../api/axiosConfig');
-        const response = await api.post('/menu', newMenuItem);
+        const { default: api } = await import('../services/api');
+        
+        let response;
+        if (isEditing) {
+            response = await api.put(`/menu/${editingId}`, newMenuItem);
+        } else {
+            response = await api.post('/menu', newMenuItem);
+        }
+
         if (response.data.success) {
-            alert('Menu Item Added!');
+            alert(isEditing ? 'Menu Item Updated!' : 'Menu Item Added!');
             fetchMenuItems();
             handleCloseModal();
         }
     } catch (error) {
-        console.error('Error adding menu item:', error);
-        alert('Failed to add menu item');
+        console.error(isEditing ? 'Error updating menu item:' : 'Error adding menu item:', error);
+        alert(isEditing ? 'Failed to update menu item' : 'Failed to add menu item');
     }
   };
 
@@ -140,17 +179,40 @@ const MenuManagement = () => {
   };
 
   const handleViewItem = (id) => {
-    alert(`View item ${id} - Modal would open here`);
+    const item = menuItems.find(i => i.id === id);
+    if (item) {
+        setSelectedItem(item);
+        setShowViewModal(true);
+    }
+  };
+
+  const handleCloseViewModal = () => {
+    setShowViewModal(false);
+    setSelectedItem(null);
   };
 
   const handleEditItem = (id) => {
-    alert(`Edit item ${id} - Modal would open here`);
+    const item = menuItems.find(i => i.id === id);
+    if (item) {
+        setMenuFormData({
+            name: item.name,
+            category: item.category,
+            price: item.price,
+            cost: item.cost,
+            available: item.available,
+            seasonal: item.seasonal,
+            imageUrl: item.imageUrl || ''
+        });
+        setIsEditing(true);
+        setEditingId(id);
+        setShowAddModal(true);
+    }
   };
 
   const handleDeleteItem = async (id) => {
     if (window.confirm('Are you sure you want to delete this item?')) {
         try {
-            const { default: api } = await import('../api/axiosConfig');
+            const { default: api } = await import('../services/api');
             const response = await api.delete(`/menu/${id}`);
             if (response.data.success) {
                 setMenuItems(prev => prev.filter(item => item.id !== id));
@@ -228,6 +290,19 @@ const MenuManagement = () => {
           {filteredItems.map((item) => (
             <div key={item.id} className="menu-item-card">
               <div className="item-header">
+                {item.imageUrl && (
+                    <div className="item-image mb-2" style={{ height: '150px', overflow: 'hidden', borderRadius: '12px' }}>
+                        <img 
+                            src={item.imageUrl.startsWith('http') ? item.imageUrl : `http://localhost:8080${item.imageUrl}`} 
+                            alt={item.name} 
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                            onError={(e) => {
+                                e.target.onerror = null; 
+                                e.target.style.display = 'none'; // Hide if broken, or show placeholder
+                            }}
+                        />
+                    </div>
+                )}
                 <h3>{item.name}</h3>
                 <div className="item-badges">
                   {item.seasonal && <span className="seasonal-badge">Seasonal</span>}
@@ -376,8 +451,8 @@ const MenuManagement = () => {
             <div className="modal-content border-0 shadow-lg">
               <div className="modal-header bg-success text-white border-0">
                 <h5 className="modal-title fw-bold d-flex align-items-center gap-2">
-                  <Plus size={24} />
-                  Add Menu Item
+                  {isEditing ? <Edit size={24} /> : <Plus size={24} />}
+                  {isEditing ? 'Edit Menu Item' : 'Add Menu Item'}
                 </h5>
                 <button type="button" className="btn-close btn-close-white" onClick={handleCloseModal}></button>
               </div>
@@ -422,6 +497,21 @@ const MenuManagement = () => {
                         <option value="Breakfast">Breakfast</option>
                         <option value="Lunch Specials">Lunch Specials</option>
                       </select>
+                    </div>
+
+                    <div className="col-12">
+                        <label className="form-label fw-bold small text-muted text-uppercase">Dish Photo</label>
+                        <input 
+                            type="file" 
+                            className="form-control" 
+                            onChange={handleFileUpload}
+                            accept="image/*"
+                        />
+                        {menuFormData.imageUrl && (
+                            <div className="mt-2 text-success small fw-bold">
+                                Image uploaded successfully!
+                            </div>
+                        )}
                     </div>
 
                     {/* Pricing Details */}
@@ -515,11 +605,85 @@ const MenuManagement = () => {
                     Cancel
                   </button>
                   <button type="submit" className="btn btn-success rounded-pill px-4 fw-bold d-flex align-items-center gap-2">
-                    <Plus size={18} />
-                    Add to Menu
+                    {isEditing ? <Edit size={18} /> : <Plus size={18} />}
+                    {isEditing ? 'Update Item' : 'Add to Menu'}
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Menu Item Modal */}
+      {showViewModal && selectedItem && (
+        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }} onClick={handleCloseViewModal}>
+          <div className="modal-dialog modal-dialog-centered" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-content border-0 shadow-lg">
+              <div className="modal-header border-0 pb-0">
+                <button type="button" className="btn-close ms-auto" onClick={handleCloseViewModal}></button>
+              </div>
+              <div className="modal-body p-4 pt-0 text-center">
+                {selectedItem.imageUrl ? (
+                    <div className="mb-4 rounded-4 overflow-hidden shadow-sm mx-auto" style={{ width: '100%', height: '250px' }}>
+                        <img 
+                            src={selectedItem.imageUrl.startsWith('http') ? selectedItem.imageUrl : `http://localhost:8080${selectedItem.imageUrl}`} 
+                            alt={selectedItem.name} 
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                            onError={(e) => {
+                                e.target.onerror = null; 
+                                e.target.src = "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=500&q=80";
+                            }}
+                        />
+                    </div>
+                ) : (
+                    <div className="mb-4 rounded-4 bg-light d-flex align-items-center justify-content-center mx-auto" style={{ width: '100%', height: '200px' }}>
+                        <UtensilsCrossed size={48} className="text-secondary opacity-25" />
+                    </div>
+                )}
+                
+                <h3 className="fw-bold mb-1">{selectedItem.name}</h3>
+                <span className="badge bg-primary bg-opacity-10 text-primary rounded-pill px-3 py-2 mb-4">
+                    {selectedItem.category}
+                </span>
+
+                <div className="row g-3 text-start">
+                    <div className="col-6">
+                        <div className="p-3 rounded-4 bg-light">
+                            <span className="d-block text-muted tiny-text fw-bold text-uppercase mb-1">Selling Price</span>
+                            <h5 className="mb-0 fw-bold text-success">${selectedItem.price.toFixed(2)}</h5>
+                        </div>
+                    </div>
+                    <div className="col-6">
+                        <div className="p-3 rounded-4 bg-light">
+                            <span className="d-block text-muted tiny-text fw-bold text-uppercase mb-1">Cost Price</span>
+                            <h5 className="mb-0 fw-bold">${selectedItem.cost.toFixed(2)}</h5>
+                        </div>
+                    </div>
+                    <div className="col-6">
+                        <div className="p-3 rounded-4 bg-light">
+                            <span className="d-block text-muted tiny-text fw-bold text-uppercase mb-1">Profit Margin</span>
+                            <h5 className="mb-0 fw-bold text-info">
+                                {Math.round(((selectedItem.price - selectedItem.cost) / selectedItem.price) * 100)}%
+                            </h5>
+                        </div>
+                    </div>
+                    <div className="col-6">
+                        <div className="p-3 rounded-4 bg-light">
+                            <span className="d-block text-muted tiny-text fw-bold text-uppercase mb-1">Total Sales</span>
+                            <h5 className="mb-0 fw-bold">{selectedItem.sales} orders</h5>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="mt-4 d-flex justify-content-center gap-2">
+                    {selectedItem.item && <span className="badge bg-warning text-dark">Seasonal Item</span>}
+                    <span className={`badge ${selectedItem.available ? 'bg-success' : 'bg-danger'}`}>
+                        {selectedItem.available ? 'Available Now' : 'Currently Unavailable'}
+                    </span>
+                </div>
+              
+              </div>
             </div>
           </div>
         </div>

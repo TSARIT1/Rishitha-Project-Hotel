@@ -38,6 +38,7 @@ public class OrderService {
         order.setWaiterName(request.getWaiterName());
         order.setStatus(OrderStatus.PENDING);
         order.setPriority("Normal"); // Default logic
+        order.setInstructions(request.getInstructions());
 
         double totalAmount = 0.0;
 

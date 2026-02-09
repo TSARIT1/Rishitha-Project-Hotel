@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
+import ProtectedRoute from './components/ProtectedRoute';
 import Sidebar from './components/Layout/Sidebar';
 import Header from './components/Layout/Header';
 import Dashboard from './pages/Dashboard';
@@ -19,12 +22,13 @@ import Careers from './pages/Careers';
 import Settings from './pages/Settings';
 import LandingPage from './pages/LandingPage';
 import Login from './pages/Login';
+import ForgotPassword from './pages/ForgotPassword';
 import MenuOrder from './pages/MenuOrder';
 import './App.css';
 
 function AppContent({ sidebarOpen, setSidebarOpen, toggleSidebar, currentSection, setCurrentSection }) {
   const location = useLocation();
-  const isLandingPage = location.pathname === '/' || location.pathname === '/landing' || location.pathname === '/login' || location.pathname.startsWith('/menu/');
+  const isLandingPage = location.pathname === '/' || location.pathname === '/landing' || location.pathname === '/login' || location.pathname === '/forgot-password' || location.pathname.startsWith('/menu/');
 
   useEffect(() => {
     const path = location.pathname;
@@ -51,6 +55,7 @@ function AppContent({ sidebarOpen, setSidebarOpen, toggleSidebar, currentSection
         <Route path="/" element={<LandingPage />} />
         <Route path="/landing" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/menu/:tableNo" element={<MenuOrder />} />
       </Routes>
     );
@@ -71,21 +76,34 @@ function AppContent({ sidebarOpen, setSidebarOpen, toggleSidebar, currentSection
         />
         <main className="main-content">
           <Routes>
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/inventory" element={<Inventory />} />
-            <Route path="/tables" element={<TableQR />} />
-            <Route path="/orders" element={<OrderManagement />} />
-            <Route path="/menu" element={<Menu />} />
-            <Route path="/customers" element={<Customers />} />
-            <Route path="/billing" element={<Billing />} />
-            <Route path="/reports" element={<Reports />} />
-            <Route path="/staff" element={<Staff />} />
-            <Route path="/suppliers" element={<Suppliers />} />
-            <Route path="/reservations" element={<Reservations />} />
-            <Route path="/expenses" element={<Expenses />} />
-            <Route path="/kitchen" element={<Kitchen />} />
-            <Route path="/career" element={<Careers />} />
-            <Route path="/settings" element={<Settings />} />
+            {/* Routes accessible by all authenticated users (Staff & Admin) */}
+            <Route element={<ProtectedRoute />}>
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/orders" element={<OrderManagement />} />
+              <Route path="/tables" element={<TableQR />} />
+              <Route path="/kitchen" element={<Kitchen />} />
+              <Route path="/reservations" element={<Reservations />} />
+              <Route path="/menu" element={<Menu />} /> {/* Assuming staff needs to check menu too */}
+            </Route>
+
+            {/* Routes accessible only by Admin (and potentially Staff for some operational tasks, but let's restrict sensitive ones) */}
+            {/* For now, assuming 'STAFF' can do most things, but 'ADMIN' controls settings/staff/financials */}
+            
+            <Route element={<ProtectedRoute allowedRoles={['ADMIN', 'STAFF']} />}> 
+               {/* Shared operational routes that might need restricting from basic 'USER' role if it exists */}
+               <Route path="/inventory" element={<Inventory />} />
+               <Route path="/customers" element={<Customers />} />
+               <Route path="/billing" element={<Billing />} />
+            </Route>
+
+            <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
+              <Route path="/staff" element={<Staff />} />
+              <Route path="/suppliers" element={<Suppliers />} />
+              <Route path="/reports" element={<Reports />} />
+              <Route path="/expenses" element={<Expenses />} />
+              <Route path="/career" element={<Careers />} />
+              <Route path="/settings" element={<Settings />} />
+            </Route>
           </Routes>
         </main>
       </div>
@@ -102,15 +120,19 @@ function App() {
   };
 
   return (
-    <Router>
-      <AppContent 
-        sidebarOpen={sidebarOpen}
-        setSidebarOpen={setSidebarOpen}
-        toggleSidebar={toggleSidebar}
-        currentSection={currentSection}
-        setCurrentSection={setCurrentSection}
-      />
-    </Router>
+    <AuthProvider>
+      <ThemeProvider>
+        <Router>
+          <AppContent 
+            sidebarOpen={sidebarOpen}
+            setSidebarOpen={setSidebarOpen}
+            toggleSidebar={toggleSidebar}
+            currentSection={currentSection}
+            setCurrentSection={setCurrentSection}
+          />
+        </Router>
+      </ThemeProvider>
+    </AuthProvider>
   );
 }
 

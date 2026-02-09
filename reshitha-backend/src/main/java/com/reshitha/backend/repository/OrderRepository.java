@@ -25,4 +25,9 @@ public interface OrderRepository extends JpaRepository<Order, Long> {
     Double sumRevenueBetween(@Param("startTime") LocalDateTime startTime, @Param("endTime") LocalDateTime endTime);
 
     Long countByStatus(OrderStatus status);
+
+    @Query("SELECT new map(m.category as category, SUM(oi.quantity) as count) FROM OrderItem oi JOIN oi.menuItem m GROUP BY m.category")
+    List<java.util.Map<String, Object>> findSalesByCategory();
+
+    List<Order> findByCustomerNameContainingIgnoreCase(String customerName);
 }

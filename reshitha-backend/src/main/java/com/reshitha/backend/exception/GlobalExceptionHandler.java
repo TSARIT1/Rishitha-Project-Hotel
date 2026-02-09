@@ -18,8 +18,18 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(RuntimeException.class)
     public ResponseEntity<ApiResponse<Object>> handleRuntimeException(RuntimeException ex) {
+        ex.printStackTrace(); // Log the error to console
         return new ResponseEntity<>(
                 new ApiResponse<>(false, ex.getMessage(), null),
+
                 HttpStatus.BAD_REQUEST);
+    }
+
+    @ExceptionHandler(org.springframework.web.multipart.MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiResponse<Object>> handleMaxSizeException(
+            org.springframework.web.multipart.MaxUploadSizeExceededException exc) {
+        return new ResponseEntity<>(
+                new ApiResponse<>(false, "File too large! Please upload a file smaller than 10MB.", null),
+                HttpStatus.EXPECTATION_FAILED);
     }
 }

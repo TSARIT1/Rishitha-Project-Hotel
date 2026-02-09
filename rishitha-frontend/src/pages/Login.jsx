@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { UtensilsCrossed, Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import './Login.css';
 
@@ -12,6 +13,8 @@ const Login = () => {
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
+  const { login } = useAuth();
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -22,8 +25,7 @@ const Login = () => {
     setLoading(true);
     
     try {
-      // Import the api instance dynamically or ensure it is imported at the top
-      const { default: api } = await import('../api/axiosConfig');
+      const { default: api } = await import('../services/api');
       
       const response = await api.post('/auth/login', {
         usernameOrEmail: formData.username, 
@@ -31,12 +33,18 @@ const Login = () => {
       });
 
       if (response.status === 200) {
-        // Store token if returned, e.g., localStorage.setItem('token', response.data.token);
+        // According to AuthController: JwtResponse(jwt, id, username, email, roles)
+        // Adjust based on actual response structure. 
+        // If response.data is the JwtResponse object directly:
+        const { accessToken, ...userData } = response.data;
+        
+        login(userData, accessToken);
         navigate('/dashboard');
       }
     } catch (error) {
       console.error('Login failed:', error);
-      alert('Login failed! Please check your credentials.');
+      const errorMessage = error.response?.data?.message || 'Login failed! Please check your credentials.';
+      alert(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -66,7 +74,7 @@ const Login = () => {
                 type="text" 
                 id="username" 
                 name="username"
-                placeholder="admin@rishitha.com"
+                placeholder="dighesaurabh46@gmail.com"
                 required 
                 value={formData.username}
                 onChange={handleChange}
@@ -101,7 +109,7 @@ const Login = () => {
             <label className="remember-me">
               <input type="checkbox" /> Remember me
             </label>
-            <a href="#" className="forgot-password">Forgot password?</a>
+            <Link to="/forgot-password" className="forgot-password">Forgot password?</Link>
           </div>
 
           <button type="submit" className="login-btn" disabled={loading}>

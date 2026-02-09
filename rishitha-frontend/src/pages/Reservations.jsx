@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Calendar, Users, MapPin, Clock, Star, 
   Coffee, Search, Filter, Plus, Download, 
@@ -12,15 +12,80 @@ const Reservations = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('All Bookings');
 
-  const [reservations, setReservations] = useState([
-    { id: 'RES-8801', name: 'Arjun Mehra', guests: 4, area: 'Standard Table', time: '19:30', date: 'Today', status: 'Confirmed', phone: '+91 98765-43001' },
-    { id: 'RES-8805', name: 'Priya Sharma', guests: 2, area: 'Window Seat', time: '20:15', date: 'Today', status: 'Arrived', phone: '+91 98234-56002' },
-    { id: 'RES-8810', name: 'Zoya Khan', guests: 25, area: 'Party Area', time: '18:00', date: 'Tomorrow', status: 'Pending', phone: '+91 91234-56003' },
-    { id: 'RES-8812', name: 'Vikram Malhotra', guests: 8, area: 'VIP Lounge', time: '21:00', date: 'Today', status: 'Confirmed', phone: '+91 99887-76004' },
-    { id: 'RES-8815', name: 'Aditya Roy', guests: 2, area: 'Candle Light', time: '20:30', date: '12 Jan', status: 'Confirmed', phone: '+91 94455-66005' },
-    { id: 'RES-8820', name: 'Sanya Gupta', guests: 12, area: 'Private Room', time: '19:00', date: '15 Jan', status: 'Cancelled', phone: '+91 93322-11006' },
-    { id: 'RES-8825', name: 'Mehul Desh.', guests: 50, area: 'Grand Banquet', time: '12:00', date: '20 Jan', status: 'Pending', phone: '+91 92211-00111' },
-  ]);
+  const [reservations, setReservations] = useState([]);
+  const [tables, setTables] = useState([]);
+
+  useEffect(() => {
+    fetchReservations();
+    fetchTables();
+  }, []);
+
+  const fetchTables = async () => {
+    try {
+        const { default: api } = await import('../services/api');
+        const response = await api.get('/tables');
+        if (response.data.success) {
+            setTables(response.data.data);
+        }
+    } catch (error) {
+        console.error("Error fetching tables:", error);
+    }
+  };
+
+  const fetchReservations = async () => {
+    try {
+      const { default: api } = await import('../services/api');
+      const response = await api.get('/reservations');
+      if (response.data.success) {
+        const mappedReservations = response.data.data.map(res => ({
+          ...res,
+          id: `RES-${res.id}`, 
+          name: res.guestName
+        }));
+        setReservations(mappedReservations);
+      }
+    } catch (error) {
+      console.error("Failed to fetch reservations", error);
+    }
+  };
+
+  const getUpcomingEvents = () => {
+      const now = new Date();
+      return reservations
+          .filter(res => {
+              const resDate = new Date(res.date + 'T' + (res.time || '00:00'));
+              return resDate >= now;
+          })
+          .sort((a, b) => new Date(a.date + 'T' + a.time) - new Date(b.date + 'T' + b.time))
+          .slice(0, 3)
+          .map(res => ({
+              event: `Reservation (${res.guestName})`,
+              area: res.area || 'General',
+              time: `${res.date}, ${res.time}`,
+              guests: `${res.guests} Guests`,
+              urgency: res.guests >= 10 ? 'High' : res.guests >= 5 ? 'Medium' : 'Low'
+          }));
+  };
+
+  const getVenueAvailability = () => {
+      const venues = {};
+      tables.forEach(table => {
+          const loc = table.location || 'Main Dining Hall';
+          if (!venues[loc]) {
+              venues[loc] = { capacity: 0, booked: 0, totalSeats: 0 };
+          }
+          venues[loc].totalSeats += table.capacity || 0;
+          if (table.status !== 'Available') {
+              venues[loc].booked += table.capacity || 0;
+          }
+      });
+      return Object.entries(venues).map(([area, stats]) => ({
+          area,
+          capacity: stats.totalSeats,
+          booked: stats.booked,
+          color: stats.booked / stats.totalSeats > 0.8 ? 'danger' : stats.booked / stats.totalSeats > 0.5 ? 'warning' : 'success'
+      }));
+  };
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newReservation, setNewReservation] = useState({
@@ -246,29 +311,29 @@ const Reservations = () => {
               </div>
               <div className="card-body p-4 pt-0">
                 <div className="vstack gap-3">
-                  {[
-                    { event: 'Birthday Celebration (Zoya Khan)', area: 'Party Area', time: 'Tomorrow, 18:00', guests: '25 Guests', urgency: 'High' },
-                    { event: 'Corporate Dinner', area: 'Grand Banquet', time: '20 Jan, 12:00', guests: '50 Guests', urgency: 'Medium' },
-                    { event: 'Anniversary Special', area: 'Candle Light', time: '12 Jan, 20:30', guests: '2 Guests', urgency: 'Low' }
-                  ].map((event, i) => (
-                    <div key={i} className="d-flex align-items-center p-3 rounded-4 bg-light bg-opacity-50 border border-transparent hover-border-primary transition-all">
-                      <div className={`p-3 rounded-4 bg-white shadow-sm me-3 text-center`} style={{ minWidth: '60px' }}>
-                        <div className="fw-bold text-primary">{event.time.split(',')[0]}</div>
-                        <div className="tiny-text text-muted">{event.time.split(',')[1]}</div>
-                      </div>
-                      <div className="flex-grow-1">
-                        <div className="fw-bold text-dark">{event.event}</div>
-                        <div className="small text-muted d-flex align-items-center gap-2">
-                          <MapPin size={12}/> {event.area} • <Users size={12}/> {event.guests}
+                  {getUpcomingEvents().length === 0 ? (
+                      <p className="text-muted text-center py-3">No upcoming events</p>
+                  ) : (
+                      getUpcomingEvents().map((event, i) => (
+                        <div key={i} className="d-flex align-items-center p-3 rounded-4 bg-light bg-opacity-50 border border-transparent hover-border-primary transition-all">
+                          <div className={`p-3 rounded-4 bg-white shadow-sm me-3 text-center`} style={{ minWidth: '60px' }}>
+                            <div className="fw-bold text-primary">{event.time.split(',')[1]}</div>
+                            <div className="tiny-text text-muted">{event.time.split(',')[0]}</div>
+                          </div>
+                          <div className="flex-grow-1">
+                            <div className="fw-bold text-dark">{event.event}</div>
+                            <div className="small text-muted d-flex align-items-center gap-2">
+                              <MapPin size={12}/> {event.area} • <Users size={12}/> {event.guests}
+                            </div>
+                          </div>
+                          <div className="text-end">
+                            <span className={`badge rounded-pill ${event.urgency === 'High' ? 'bg-danger-soft text-danger' : 'bg-primary-soft text-primary'} small px-3`}>
+                              {event.urgency} Prep
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                      <div className="text-end">
-                        <span className={`badge rounded-pill ${event.urgency === 'High' ? 'bg-danger-soft text-danger' : 'bg-primary-soft text-primary'} small px-3`}>
-                          {event.urgency} Prep
-                        </span>
-                      </div>
-                    </div>
-                  ))}
+                      ))
+                  )}
                 </div>
               </div>
             </div>
@@ -281,33 +346,32 @@ const Reservations = () => {
               </div>
               <div className="card-body p-4 pt-1">
                 <div className="vstack gap-4">
-                  {[
-                    { area: 'Main Dining Hall', capacity: 120, booked: 98, color: 'primary' },
-                    { area: 'Kitchen Terrace', capacity: 40, booked: 12, color: 'success' },
-                    { area: 'Party Area', capacity: 50, booked: 45, color: 'purple' },
-                    { area: 'VIP Lounge', capacity: 15, booked: 15, color: 'warning' }
-                  ].map((area, i) => (
-                    <div key={i}>
-                      <div className="d-flex justify-content-between align-items-center mb-2">
-                        <span className="fw-bold small text-dark">{area.area}</span>
-                        <span className="tiny-text fw-bold text-muted">{area.booked} / {area.capacity} seats</span>
-                      </div>
-                      <div className="progress rounded-pill shadow-none" style={{ height: '8px' }}>
-                        <div className={`progress-bar bg-${area.color}`} style={{ width: `${(area.booked / area.capacity) * 100}%` }}></div>
-                      </div>
-                    </div>
-                  ))}
+                  {getVenueAvailability().length === 0 ? (
+                      <p className="text-center text-muted">No table data available</p>
+                  ) : (
+                      getVenueAvailability().map((area, i) => (
+                        <div key={i}>
+                          <div className="d-flex justify-content-between align-items-center mb-2">
+                            <span className="fw-bold small text-dark">{area.area}</span>
+                            <span className="tiny-text fw-bold text-muted">{area.booked} / {area.capacity} seats</span>
+                          </div>
+                          <div className="progress rounded-pill shadow-none" style={{ height: '8px' }}>
+                            <div className={`progress-bar bg-${area.color}`} style={{ width: `${(area.booked / area.capacity) * 100}%` }}></div>
+                          </div>
+                        </div>
+                      ))
+                  )}
                 </div>
                 
                 <div className="mt-4 p-4 bg-white bg-opacity-50 rounded-4 border border-white text-center shadow-sm">
                    <div className="d-flex justify-content-center gap-4 mb-3">
                       <div className="text-center">
-                        <div className="h4 fw-bold mb-0 text-primary">12</div>
+                        <div className="h4 fw-bold mb-0 text-primary">{tables.filter(t => t.status === 'Available').length}</div>
                         <div className="tiny-text text-muted fw-bold">Free Tables</div>
                       </div>
                       <div className="vr"></div>
                       <div className="text-center">
-                        <div className="h4 fw-bold mb-0 text-success">08</div>
+                        <div className="h4 fw-bold mb-0 text-success">{reservations.filter(r => r.status === 'Arriving' || r.status === 'Pending').length}</div>
                         <div className="tiny-text text-muted fw-bold">Reservations Arriving</div>
                       </div>
                    </div>

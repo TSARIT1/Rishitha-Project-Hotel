@@ -6,15 +6,19 @@ import {
 } from 'lucide-react';
 import './Kitchen.css';
 
+import api from '../services/api'; // Static import
+
 const Kitchen = () => {
   const [filter, setFilter] = useState('all');
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [lastUpdated, setLastUpdated] = useState(new Date());
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (showSpinner = true) => {
     try {
-        setLoading(true);
-        const { default: api } = await import('../api/axiosConfig');
+        if (showSpinner) setLoading(true);
+        const startTime = Date.now();
+        
         const response = await api.get('/orders'); 
         if (response.data.success) {
             const activeOrders = response.data.data.filter(o => 
@@ -29,20 +33,34 @@ const Kitchen = () => {
                 time: getTimeDifference(o.orderTime),
                 priority: 'medium',
                 status: o.status === 'PENDING' ? 'arrived' : o.status.toLowerCase(),
-                rawStatus: o.status
+                rawStatus: o.status,
+                instructions: o.instructions // Map instructions
             }));
             setOrders(mappedOrders);
+            setLastUpdated(new Date());
+        }
+        
+        // Ensure spinner shows for at least 500ms for UX (only if spinner is shown)
+        if (showSpinner) {
+            const elapsedTime = Date.now() - startTime;
+            if (elapsedTime < 500) {
+                await new Promise(resolve => setTimeout(resolve, 500 - elapsedTime));
+            }
         }
     } catch (err) {
         console.error("Error fetching kitchen orders", err);
+        if (showSpinner) {
+             // Only show alert on manual refresh failure, silent fail on background poll
+             alert("Failed to refresh orders. Check connection.");
+        }
     } finally {
-        setLoading(false);
+        if (showSpinner) setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchOrders();
-    const interval = setInterval(fetchOrders, 30000); // Poll every 30s
+    fetchOrders(true); // Initial load with spinner
+    const interval = setInterval(() => fetchOrders(false), 3000); // Poll every 3s silently
     return () => clearInterval(interval);
   }, []);
 
@@ -55,7 +73,7 @@ const Kitchen = () => {
 
   const handleStatusUpdate = async (id, newStatus) => {
       try {
-          const { default: api } = await import('../api/axiosConfig');
+          const { default: api } = await import('../services/api');
           const response = await api.put(`/orders/${id}/status?status=${newStatus}`);
           if (response.data.success) {
               fetchOrders(); 
@@ -66,20 +84,7 @@ const Kitchen = () => {
       }
   };
 
-  // Sample chef data
-  const chefs = [
-    { name: 'Chef Mario', activeOrders: 3, completedToday: 24, avgPrepTime: '12m', specialty: 'Italian', status: 'Active' },
-    { name: 'Chef Sarah', activeOrders: 2, completedToday: 18, avgPrepTime: '15m', specialty: 'Seafood', status: 'Active' },
-    { name: 'Chef David', activeOrders: 4, completedToday: 32, avgPrepTime: '10m', specialty: 'Grill', status: 'Active' },
-    { name: 'Chef Elena', activeOrders: 1, completedToday: 15, avgPrepTime: '20m', specialty: 'Pastry', status: 'On Break' }
-  ];
 
-  // Sample timing data
-  const orderTimings = [
-    { order: '#1234', startTime: '11:25 AM', estimatedTime: '15m', status: 'On Time' },
-    { order: '#1237', startTime: '11:15 AM', estimatedTime: '20m', status: 'Delayed' },
-    { order: '#1235', startTime: '11:30 AM', estimatedTime: '18m', status: 'Ready' }
-  ];
 
   const arrivedCount = orders.filter(o => o.status === 'arrived').length;
   const preparingCount = orders.filter(o => o.status === 'preparing').length;
@@ -121,9 +126,12 @@ const Kitchen = () => {
             </div>
           </div>
         </div>
-        <div className="col-auto d-flex gap-2">
-          <button className="btn btn-outline-primary shadow-sm d-flex align-items-center gap-2 px-3 py-2 fw-semibold border-0 bg-white" onClick={fetchOrders}>
-            <RefreshCw size={18} className={loading ? "spin-slow" : ""} /> Refresh
+        <div className="col-auto d-flex gap-2 align-items-center">
+          <span className="text-muted small fw-bold me-2">
+            Details updated: {lastUpdated.toLocaleTimeString()}
+          </span>
+          <button className="btn btn-outline-primary shadow-sm d-flex align-items-center gap-2 px-3 py-2 fw-semibold border-0 bg-white" onClick={() => fetchOrders(true)} disabled={loading}>
+            <RefreshCw size={18} className={loading ? "spin-slow" : ""} /> {loading ? "Refreshing..." : "Refresh"}
           </button>
           <button className="btn btn-primary d-flex align-items-center gap-2 px-3 py-2 fw-semibold shadow-sm">
             <Printer size={18} /> Print KOT
@@ -198,6 +206,14 @@ const Kitchen = () => {
                                   <span className="fw-semibold small">{item}</span>
                                 </li>
                               ))}
+                              {order.instructions && (
+                                <li className="mt-3 p-2 bg-warning-soft rounded-3 border border-warning-subtle">
+                                  <div className="d-flex gap-2">
+                                    <AlertCircle size={14} className="text-warning mt-1 flex-shrink-0" />
+                                    <span className="tiny-text fw-bold text-dark fst-italic">"{order.instructions}"</span>
+                                  </div>
+                                </li>
+                              )}
                             </ul>
                           </div>
 
@@ -237,73 +253,33 @@ const Kitchen = () => {
 
         {/* Bottom Section: Performance & Timing */}
         <div className="row g-4 mb-4">
-          <div className="col-12 col-lg-8">
-            <div className="card border-0 shadow-sm rounded-4 h-100">
-              <div className="card-header bg-white border-0 py-4 px-4 d-flex align-items-center gap-2">
-                <ChefHat className="text-primary" size={24} />
-                <h4 className="fw-bold mb-0">Chef Performance</h4>
-              </div>
-              <div className="card-body px-4 pt-0 overflow-auto">
-                <div className="table-responsive">
-                  <table className="table table-hover align-middle kitchen-table-modern">
-                    <thead className="table-light">
-                      <tr>
-                        <th className="ps-0 border-0">CHEF NAME</th>
-                        <th className="border-0 text-center">ACTIVE</th>
-                        <th className="border-0 text-center">DONE</th>
-                        <th className="border-0">AVG TIME</th>
-                        <th className="border-0">SPECIALTY</th>
-                        <th className="border-0 pe-0">STATUS</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {chefs.map((chef, index) => (
-                        <tr key={index}>
-                          <td className="ps-0 py-3">
-                            <div className="fw-bold text-dark">{chef.name}</div>
-                          </td>
-                          <td className="text-center fw-bold">{chef.activeOrders}</td>
-                          <td className="text-center fw-bold text-success">{chef.completedToday}</td>
-                          <td className="text-muted fw-medium">{chef.avgPrepTime}</td>
-                          <td><span className="badge bg-light text-dark fw-medium border">{chef.specialty}</span></td>
-                          <td className="pe-0">
-                            <span className="status-pill type-new x-small-text fw-bold">{chef.status}</span>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="col-12 col-lg-4">
+          <div className="col-12">
             <div className="card border-0 shadow-sm rounded-4 h-100">
               <div className="card-header bg-white border-0 py-4 px-4 d-flex align-items-center gap-2">
                 <Clock className="text-primary" size={24} />
-                <h4 className="fw-bold mb-0">Order Tracking</h4>
+                <h4 className="fw-bold mb-0">Recent Order Activity</h4>
               </div>
               <div className="card-body px-4 pt-0">
                 <div className="vstack gap-3">
-                  {orderTimings.map((timing, index) => (
-                    <div key={index} className="d-flex align-items-center p-3 rounded-4 bg-light bg-opacity-50 border border-transparent hover-border-primary transition-all">
-                      <div className="flex-grow-1">
-                        <div className="h6 fw-bold mb-1 text-dark">Order {timing.order}</div>
-                        <div className="tiny-text text-muted fw-semibold">Started {timing.startTime}</div>
-                      </div>
-                      <div className="text-end">
-                        <span className={`status-pill ${timing.status === 'Ready' ? 'type-new' : timing.status === 'Delayed' ? 'type-vip' : 'type-regular'} x-small-text fw-bold`}>
-                          {timing.status}
-                        </span>
-                        <div className="tiny-text text-muted fw-bold mt-1">Est {timing.estimatedTime}</div>
-                      </div>
-                    </div>
-                  ))}
+                  {orders.length === 0 ? (
+                      <p className="text-muted text-center my-3">No recent actvity</p>
+                  ) : (
+                      orders.slice(0, 5).map((order) => (
+                        <div key={order.rawId} className="d-flex align-items-center p-3 rounded-4 bg-light bg-opacity-50 border border-transparent hover-border-primary transition-all">
+                          <div className="flex-grow-1">
+                            <div className="h6 fw-bold mb-1 text-dark">Order {order.id}</div>
+                            <div className="tiny-text text-muted fw-semibold">Time: {order.time}</div>
+                          </div>
+                          <div className="text-end">
+                            <span className={`status-pill ${order.status === 'ready' ? 'type-new' : order.status === 'delayed' ? 'type-vip' : 'type-regular'} x-small-text fw-bold`}>
+                              {order.status}
+                            </span>
+                            <div className="tiny-text text-muted fw-bold mt-1">Table {order.table}</div>
+                          </div>
+                        </div>
+                      ))
+                  )}
                 </div>
-              </div>
-              <div className="card-footer bg-white border-0 text-center pb-4">
-                <button className="btn btn-link btn-sm text-decoration-none fw-bold">View Full Activity Log</button>
               </div>
             </div>
           </div>

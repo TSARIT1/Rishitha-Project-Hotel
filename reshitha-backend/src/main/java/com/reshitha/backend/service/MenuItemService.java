@@ -43,6 +43,7 @@ public class MenuItemService {
                     item.setCost(updatedItem.getCost());
                     item.setAvailable(updatedItem.isAvailable());
                     item.setSeasonal(updatedItem.isSeasonal());
+                    item.setImageUrl(updatedItem.getImageUrl());
                     return menuItemRepository.save(item);
                 })
                 .orElseThrow(() -> new RuntimeException("Menu Item not found with id " + id));

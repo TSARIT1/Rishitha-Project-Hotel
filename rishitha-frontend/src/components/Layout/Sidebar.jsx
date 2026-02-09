@@ -20,7 +20,7 @@ const Sidebar = ({ isOpen, onClose, currentSection, setCurrentSection }) => {
     { icon: BarChart3, label: 'Reports & Analytics', path: '/reports', badge: null },
     { icon: UserCog, label: 'Staff Management', path: '/staff', badge: null },
     { icon: Truck, label: 'Suppliers', path: '/suppliers', badge: null },
-    { icon: CalendarCheck, label: 'Reservations', path: '/reservations', badge: 5 },
+    { icon: CalendarCheck, label: 'Reservations', path: '/reservations', badge: null },
     { icon: DollarSign, label: 'Expenses', path: '/expenses', badge: null },
     { icon: ChefHat, label: 'Kitchen Display', path: '/kitchen', badge: null },
     { icon: Briefcase, label: 'Carrier', path: '/career', badge: null },
@@ -82,7 +82,6 @@ const Sidebar = ({ isOpen, onClose, currentSection, setCurrentSection }) => {
             <div className="status-dot"></div>
             <span>System Online</span>
           </div>
-          <p className="version">v2.1.0 • © 2024 Rishitha</p>
         </div>
       </aside>
     </>

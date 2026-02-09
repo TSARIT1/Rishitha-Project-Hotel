@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   DollarSign, PieChart, TrendingDown, AlertCircle, Plus, 
   Download, Search, Filter, Eye, Edit, Trash2, 
@@ -13,15 +13,75 @@ const Expenses = () => {
   const [statusFilter, setStatusFilter] = useState('All Status');
 
   // Sample expense data
-  const [expenses, setExpenses] = useState([
-    { id: 'EXP-101', date: '2026-01-08', description: 'Fresh Produce (Vegetables)', category: 'Food & Beverage', supplier: 'Metro Wholesale', amount: 1250.00, tax: 62.50, status: 'Paid', method: 'UPI' },
-    { id: 'EXP-102', date: '2026-01-07', description: 'Monthly Electricity Bill', category: 'Utilities', supplier: 'State Power Board', amount: 3420.00, tax: 171.00, status: 'Pending', method: 'Bank Transfer' },
-    { id: 'EXP-103', date: '2026-01-07', description: 'Kitchen Staff Salary (Partial)', category: 'Staff Salary', supplier: 'Direct Deposit', amount: 15000.00, tax: 0.00, status: 'Paid', method: 'Bank Transfer' },
-    { id: 'EXP-104', date: '2026-01-06', description: 'Restaurant Rent - January', category: 'Rent', supplier: 'City Properties Ltd', amount: 45000.00, tax: 0.00, status: 'Paid', method: 'Cheque' },
-    { id: 'EXP-105', date: '2026-01-05', description: 'Social Media Ads', category: 'Marketing', supplier: 'Meta Ads', amount: 5400.00, tax: 972.00, status: 'Paid', method: 'Card' },
-    { id: 'EXP-106', date: '2026-01-05', description: 'New Blender for Bar', category: 'Maintenance', supplier: 'Kitchen Equip Co.', amount: 8900.00, tax: 1602.00, status: 'Pending', method: 'Bank Transfer' },
-    { id: 'EXP-107', date: '2026-01-04', description: 'Cleaning Supplies', category: 'General', supplier: 'Standard Cleaners', amount: 1200.00, tax: 216.00, status: 'Paid', method: 'Cash' },
-  ]);
+  // Sample expense data
+  // Sample expense data
+  const [expenses, setExpenses] = useState([]);
+  const [dashboardStats, setDashboardStats] = useState({
+    total: 0, 
+    mtd: 0, 
+    pendingCount: 0, 
+    pendingValue: 0, 
+    topCategory: 'N/A', 
+    topCategoryPercent: 0 
+  });
+  const [categoryBreakdown, setCategoryBreakdown] = useState([]);
+
+  useEffect(() => {
+    fetchExpenses();
+  }, []);
+
+  const calculateStats = (data) => {
+     const total = data.reduce((sum, item) => sum + (item.amount || 0), 0);
+     
+     // MTD calculation (simple current month check)
+     const currentMonth = new Date().getMonth();
+     const mtd = data.filter(item => new Date(item.date).getMonth() === currentMonth)
+                     .reduce((sum, item) => sum + (item.amount || 0), 0);
+
+     // Pending
+     const pendingItems = data.filter(item => item.status === 'Pending');
+     const pendingCount = pendingItems.length;
+     const pendingValue = pendingItems.reduce((sum, item) => sum + (item.amount || 0), 0);
+
+     // Categories
+     const catMap = {};
+     data.forEach(item => {
+        catMap[item.category] = (catMap[item.category] || 0) + item.amount;
+     });
+     
+     const sortedCats = Object.entries(catMap)
+       .map(([cat, amount]) => ({ 
+          category: cat, 
+          amount, 
+          percent: total ? Math.round((amount/total)*100) : 0,
+          color: ['primary', 'success', 'info', 'warning', 'danger'][Math.floor(Math.random() * 5)] // Assign random color for now or map specific
+       }))
+       .sort((a, b) => b.amount - a.amount);
+
+     const topCat = sortedCats.length > 0 ? sortedCats[0].category : 'N/A';
+     const topCatPercent = sortedCats.length > 0 ? sortedCats[0].percent : 0;
+     
+     setDashboardStats({ total, mtd, pendingCount, pendingValue, topCategory: topCat, topCategoryPercent: topCatPercent });
+     setCategoryBreakdown(sortedCats);
+  };
+
+  const fetchExpenses = async () => {
+    try {
+      const { default: api } = await import('../services/api');
+      const response = await api.get('/expenses');
+      if (response.data.success) {
+        // Map backend fields to frontend expected structure
+        const mappedExpenses = response.data.data.map(exp => ({
+          ...exp,
+          id: `EXP-${exp.id}`, // Display ID format
+        }));
+        setExpenses(mappedExpenses);
+        calculateStats(mappedExpenses);
+      }
+    } catch (error) {
+       console.error("Failed to fetch expenses", error);
+    }
+  };
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newExpense, setNewExpense] = useState({
@@ -43,34 +103,43 @@ const Expenses = () => {
     }));
   };
 
-  const handleAddExpense = (e) => {
+  const handleAddExpense = async (e) => {
     e.preventDefault();
-    const id = `EXP-${Math.floor(108 + Math.random() * 100)}`;
-    const expense = {
-      id,
-      ...newExpense,
-      amount: parseFloat(newExpense.amount) || 0,
-      tax: parseFloat(newExpense.tax) || 0
-    };
-    setExpenses([expense, ...expenses]);
-    setIsModalOpen(false);
-    setNewExpense({
-      description: '',
-      category: 'Food & Beverage',
-      supplier: '',
-      amount: '',
-      tax: '',
-      status: 'Pending',
-      method: 'Cash',
-      date: new Date().toISOString().split('T')[0]
-    });
+    try {
+      const { default: api } = await import('../services/api');
+      const payload = {
+        ...newExpense,
+        amount: parseFloat(newExpense.amount) || 0,
+        tax: parseFloat(newExpense.tax) || 0
+      };
+      
+      const response = await api.post('/expenses', payload);
+      
+      if (response.data.success) {
+        setIsModalOpen(false);
+        setNewExpense({
+          description: '',
+          category: 'Food & Beverage',
+          supplier: '',
+          amount: '',
+          tax: '',
+          status: 'Pending',
+          method: 'Cash',
+          date: new Date().toISOString().split('T')[0]
+        });
+        fetchExpenses(); // Refresh list and stats
+      }
+    } catch (error) {
+       console.error("Error adding expense", error);
+       alert("Failed to save expense");
+    }
   };
 
   const stats = [
-    { title: 'Total Expenses', value: '₹79,170', icon: Wallet, color: 'danger', trend: '+12%', trendUp: true },
-    { title: 'MTD Spend', value: '₹34,250', icon: TrendingDown, color: 'warning', trend: '-5%', trendUp: false },
-    { title: 'Pending Bills', value: '12', icon: AlertCircle, color: 'info', trend: '₹12.4k', trendUp: true },
-    { title: 'Top Category', value: 'Food', icon: PieChart, color: 'primary', trend: '42%', trendUp: true },
+    { title: 'Total Expenses', value: `₹${dashboardStats.total.toLocaleString()}`, icon: Wallet, color: 'danger', trend: 'Yearly', trendUp: true },
+    { title: 'MTD Spend', value: `₹${dashboardStats.mtd.toLocaleString()}`, icon: TrendingDown, color: 'warning', trend: 'Current Month', trendUp: false },
+    { title: 'Pending Bills', value: dashboardStats.pendingCount, icon: AlertCircle, color: 'info', trend: `₹${(dashboardStats.pendingValue/1000).toFixed(1)}k`, trendUp: true },
+    { title: 'Top Category', value: dashboardStats.topCategory, icon: PieChart, color: 'primary', trend: `${dashboardStats.topCategoryPercent}%`, trendUp: true },
   ];
 
   const categories = ['All Categories', 'Food & Beverage', 'Staff Salary', 'Utilities', 'Rent', 'Marketing', 'Maintenance', 'General'];
@@ -169,11 +238,7 @@ const Expenses = () => {
                    {statuses.map(s => <option key={s}>{s}</option>)}
                 </select>
               </div>
-              <div className="col-12 col-md-3 col-lg-2 ms-md-auto">
-                <button className="btn btn-primary w-100 rounded-pill py-2 d-flex align-items-center justify-content-center gap-2 fw-bold shadow-sm">
-                   <Filter size={18} /> Apply Filter
-                </button>
-              </div>
+
             </div>
           </div>
         </div>
@@ -249,22 +314,17 @@ const Expenses = () => {
                  </div>
                  <div className="card-body px-4 pt-1 pb-4">
                     <div className="vstack gap-3">
-                       {[
-                         { category: 'Food & Beverage', amount: '₹1,25,400', percent: 42, color: 'primary' },
-                         { category: 'Staff Salary', amount: '₹85,000', percent: 28, color: 'success' },
-                         { category: 'Utilities', amount: '₹42,300', percent: 14, color: 'info' },
-                         { category: 'Rent', amount: '₹45,000', percent: 16, color: 'warning' },
-                       ].map((item, i) => (
+                       {categoryBreakdown.length > 0 ? categoryBreakdown.slice(0, 5).map((item, i) => (
                          <div key={i}>
                             <div className="d-flex justify-content-between align-items-end mb-1">
                                <span className="small fw-bold">{item.category}</span>
-                               <span className="tiny-text fw-bold text-muted">{item.amount} ({item.percent}%)</span>
+                               <span className="tiny-text fw-bold text-muted">₹{item.amount.toLocaleString()} ({item.percent}%)</span>
                             </div>
                             <div className="progress rounded-pill shadow-none" style={{ height: '8px' }}>
-                               <div className={`progress-bar bg-${item.color} rounded-pill`} style={{ width: `${item.percent}%` }}></div>
+                               <div className={`progress-bar bg-${item.color || 'primary'} rounded-pill`} style={{ width: `${item.percent}%` }}></div>
                             </div>
                          </div>
-                       ))}
+                       )) : <p className="text-muted small text-center my-4">No expense data available</p>}
                     </div>
                  </div>
               </div>
@@ -278,7 +338,7 @@ const Expenses = () => {
                  <div className="card-body p-4 text-center">
                     <div className="p-4 bg-white bg-opacity-75 rounded-4 shadow-sm border border-white">
                         <Wallet size={48} className="text-danger mb-3 opacity-75" />
-                        <h3 className="fw-bold text-dark mb-1">₹7.42 Lakh</h3>
+                        <h3 className="fw-bold text-dark mb-1">₹{(dashboardStats.total / 100000).toFixed(2)} Lakh</h3>
                         <p className="text-muted small fw-medium text-uppercase ls-1">Financial Year Total Spend</p>
                         <hr className="my-4 opacity-10" />
                         <div className="d-flex justify-content-around">

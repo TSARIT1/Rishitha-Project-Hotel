@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   BarChart3, TrendingUp, TrendingDown, DollarSign, 
   ShoppingCart, Users, Package, Calendar, 
@@ -36,16 +36,104 @@ ChartJS.register(
   Filler
 );
 
+import AIAssistant from '../components/AI/AIAssistant';
+
 const Reports = () => {
-  const [timeRange, setTimeRange] = useState('This Month');
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1); // 1-12
+  const [reportData, setReportData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [trendView, setTrendView] = useState('sales'); // 'sales' or 'orders'
+  const [analyzing, setAnalyzing] = useState(false);
+  const [aiAnalysis, setAiAnalysis] = useState(null);
+
+  const generateAIAnalysis = async () => {
+      if (!reportData) return;
+      
+      setAnalyzing(true);
+      setAiAnalysis(null);
+      
+      try {
+          const { default: api } = await import('../services/api');
+          // Prepare data payload - send relevant parts to save bandwidth/complexity
+          const payload = {
+              totalRevenue: reportData.totalRevenue,
+              totalCustomers: reportData.totalCustomers,
+              salesByCategory: reportData.salesByCategory,
+              revenueTrend: reportData.revenueTrend,
+              year: selectedYear,
+              month: selectedMonth
+          };
+          
+          const response = await api.post('/reports/analyze', payload);
+          if (response.data.success) {
+              setAiAnalysis(response.data.data);
+          } else {
+              setAiAnalysis("Failed to generate analysis. Please try again.");
+          }
+      } catch (error) {
+          console.error("Error generating AI analysis:", error);
+          setAiAnalysis("Error connecting to AI service. Please check your connection.");
+      } finally {
+          setAnalyzing(false);
+      }
+  };
+
+  // Simple Markdown Renderer Component (internal for now)
+  const MarkdownRenderer = ({ content }) => {
+      if (!content) return null;
+      
+      // Basic replacement for bold key terms - a full MD library would be better but this is lightweight
+      const htmlContent = content
+          .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+          .replace(/\n/g, '<br />');
+          
+      return <div dangerouslySetInnerHTML={{ __html: htmlContent }} />;
+  };
+
+  useEffect(() => {
+    const fetchReports = async () => {
+      setLoading(true);
+      try {
+        const { default: api } = await import('../services/api');
+        const response = await api.get(`/reports?year=${selectedYear}&month=${selectedMonth}`);
+        if (response.data.success) {
+          setReportData(response.data.data);
+        }
+      } catch (error) {
+        console.error("Error fetching reports:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchReports();
+  }, [selectedYear, selectedMonth]);
+
+  if (loading && !reportData) {
+    return <div className="p-5 text-center text-muted">Loading reports...</div>;
+  }
+
+  // Use fetched data or defaults
+  const data = reportData || {};
+
+  // Helper for generating year/month options
+  const years = [2024, 2025, 2026, 2027];
+  const months = [
+    { value: 1, label: 'January' }, { value: 2, label: 'February' }, { value: 3, label: 'March' },
+    { value: 4, label: 'April' }, { value: 5, label: 'May' }, { value: 6, label: 'June' },
+    { value: 7, label: 'July' }, { value: 8, label: 'August' }, { value: 9, label: 'September' },
+    { value: 10, label: 'October' }, { value: 11, label: 'November' }, { value: 12, label: 'December' }
+  ];
 
   // Chart Data: Revenue Trend
+  const revenueTrendMap = data.revenueTrend || {};
   const revenueData = {
-    labels: ['Jan 1', 'Jan 5', 'Jan 10', 'Jan 15', 'Jan 20', 'Jan 25', 'Jan 30'],
+    labels: Object.keys(revenueTrendMap),
     datasets: [
       {
         label: 'Revenue (₹)',
-        data: [42000, 48000, 39000, 55000, 62000, 58000, 65000],
+        data: Object.values(revenueTrendMap),
         fill: true,
         borderColor: 'rgba(13, 110, 253, 1)',
         backgroundColor: 'rgba(13, 110, 253, 0.1)',
@@ -59,16 +147,18 @@ const Reports = () => {
   };
 
   // Chart Data: Sales by Category
+  const categoryMap = data.salesByCategory || {};
   const categoryData = {
-    labels: ['Food', 'Beverages', 'Desserts', 'Service'],
+    labels: Object.keys(categoryMap),
     datasets: [
       {
-        data: [45, 25, 15, 15],
+        data: Object.values(categoryMap),
         backgroundColor: [
           'rgba(13, 110, 253, 0.8)',
           'rgba(13, 202, 240, 0.8)',
           'rgba(255, 193, 7, 0.8)',
           'rgba(25, 135, 84, 0.8)',
+          'rgba(220, 53, 69, 0.8)',
         ],
         borderWidth: 0,
       },
@@ -76,12 +166,13 @@ const Reports = () => {
   };
 
   // Chart Data: Peak Hours
+  const peakHoursMap = data.peakDiningHours || {};
   const peakHoursData = {
-    labels: ['11 AM', '1 PM', '3 PM', '5 PM', '7 PM', '9 PM', '11 PM'],
+    labels: Object.keys(peakHoursMap),
     datasets: [
       {
         label: 'Orders',
-        data: [12, 45, 18, 22, 58, 64, 28],
+        data: Object.values(peakHoursMap),
         backgroundColor: 'rgba(13, 110, 253, 0.7)',
         borderRadius: 8,
       },
@@ -111,10 +202,10 @@ const Reports = () => {
   };
 
   const stats = [
-    { title: 'Total Revenue', value: '₹4,82,450', icon: DollarSign, color: 'primary', trend: '+12.5%', trendUp: true },
-    { title: 'Avg. Order', value: '₹1,240', icon: ShoppingCart, color: 'info', trend: '+4.2%', trendUp: true },
-    { title: 'Customer Growth', value: '1,420', icon: Users, color: 'success', trend: '+8.1%', trendUp: true },
-    { title: 'Inventory Turn', value: '14.2', icon: Package, color: 'warning', trend: '-2.4%', trendUp: false },
+    { title: 'Total Revenue', value: `₹${data.totalRevenue?.toLocaleString() || '0'}`, icon: DollarSign, color: 'primary', trend: `+${data.totalRevenueGrowth || 0}%`, trendUp: true },
+    { title: 'Avg. Order', value: `₹${data.avgOrderValue?.toLocaleString() || '0'}`, icon: ShoppingCart, color: 'info', trend: `+${data.avgOrderGrowth || 0}%`, trendUp: true },
+    { title: 'Total Customers', value: data.totalCustomers?.toLocaleString() || '0', icon: Users, color: 'success', trend: `+${data.customerGrowth || 0}%`, trendUp: true },
+    { title: 'Inventory Turn', value: data.inventoryTurnover?.toString() || '0', icon: Package, color: 'warning', trend: '-2.4%', trendUp: false },
   ];
 
   return (
@@ -130,22 +221,71 @@ const Reports = () => {
           <p className="text-muted small mb-0 fw-medium">Real-time business intelligence and sales insights</p>
         </div>
         <div className="col-auto d-flex gap-2">
-          <div className="dropdown">
-            <button className="btn btn-light shadow-sm dropdown-toggle rounded-pill px-3 border-0 bg-white small fw-bold" type="button" data-bs-toggle="dropdown">
-              <Calendar size={16} className="me-2 text-primary" /> {timeRange}
-            </button>
-            <ul className="dropdown-menu border-0 shadow-sm rounded-3">
-              <li><button className="dropdown-item small" onClick={() => setTimeRange('Today')}>Today</button></li>
-              <li><button className="dropdown-item small" onClick={() => setTimeRange('This Week')}>This Week</button></li>
-              <li><button className="dropdown-item small" onClick={() => setTimeRange('This Month')}>This Month</button></li>
-              <li><button className="dropdown-item small" onClick={() => setTimeRange('Custom Range')}>Custom Range</button></li>
-            </ul>
-          </div>
-          <button className="btn btn-primary shadow-sm d-flex align-items-center gap-2 px-3 py-2 fw-semibold rounded-pill">
-            <Download size={18} /> Download Full Report
+          
+          {/* Year Selector */}
+          <select 
+            className="form-select border-0 shadow-sm rounded-pill px-3 py-2 fw-bold text-primary bg-white" 
+            style={{ width: 'auto' }}
+            value={selectedYear} 
+            onChange={(e) => setSelectedYear(Number(e.target.value))}
+          >
+            {years.map(y => <option key={y} value={y}>{y}</option>)}
+          </select>
+
+          {/* Month Selector */}
+          <select 
+            className="form-select border-0 shadow-sm rounded-pill px-3 py-2 fw-bold text-primary bg-white" 
+            style={{ width: 'auto' }}
+            value={selectedMonth} 
+            onChange={(e) => setSelectedMonth(Number(e.target.value))}
+          >
+            {months.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+          </select>
+
+          <button 
+            className="btn btn-primary shadow-sm d-flex align-items-center gap-2 px-3 py-2 fw-semibold rounded-pill"
+            onClick={generateAIAnalysis}
+            disabled={analyzing}
+          >
+            {analyzing ? (
+                <>
+                    <span className="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                    <span role="status">Thinking...</span>
+                </>
+            ) : (
+                <>
+                    <div className="d-flex align-items-center justify-content-center bg-white rounded-circle" style={{width: '20px', height: '20px'}}>
+                        <span style={{fontSize: '12px'}}>✨</span>
+                    </div>
+                    Analyze with AI
+                </>
+            )}
+          </button>
+          
+          <button className="btn btn-outline-primary shadow-sm d-flex align-items-center gap-2 px-3 py-2 fw-semibold rounded-pill bg-white">
+            <Download size={18} /> Download
           </button>
         </div>
       </div>
+
+      {/* AI Analysis Result Section */}
+      {aiAnalysis && (
+        <div className="px-2 mb-4 animate-fadeIn">
+            <div className="card border-0 shadow-sm rounded-4 bg-primary-soft">
+                <div className="card-body p-4">
+                    <div className="d-flex align-items-center gap-2 mb-3">
+                        <div className="p-2 bg-primary rounded-3 text-white">
+                             <span style={{fontSize: '18px'}}>✨</span>
+                        </div>
+                        <h5 className="fw-bold mb-0 text-primary">AI Business Consultant</h5>
+                    </div>
+                    <div className="bg-white rounded-3 p-3 shadow-sm markdown-content">
+                        <MarkdownRenderer content={aiAnalysis} />
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <div className="flex-grow-1 overflow-auto custom-thin-scrollbar px-2">
@@ -190,8 +330,18 @@ const Reports = () => {
                   <p className="tiny-text text-muted mb-0 fw-bold text-uppercase mt-1">Net Sales over time</p>
                 </div>
                 <div className="btn-group btn-group-sm rounded-pill p-1 bg-light border-0">
-                  <button className="btn btn-white shadow-sm border-0 rounded-pill px-3 py-1 small fw-bold">Sales</button>
-                  <button className="btn btn-transparent border-0 rounded-pill px-3 py-1 small fw-bold text-muted">Orders</button>
+                  <button 
+                    className={`btn border-0 rounded-pill px-3 py-1 small fw-bold shadow-sm ${trendView === 'sales' ? 'btn-white text-dark' : 'btn-transparent text-muted'}`}
+                    onClick={() => setTrendView('sales')}
+                  >
+                    Sales
+                  </button>
+                  <button 
+                    className={`btn border-0 rounded-pill px-3 py-1 small fw-bold shadow-sm ${trendView === 'orders' ? 'btn-white text-dark' : 'btn-transparent text-muted'}`}
+                    onClick={() => setTrendView('orders')}
+                  >
+                    Orders
+                  </button>
                 </div>
               </div>
               <div className="card-body px-4 pt-1 pb-4" style={{ minHeight: '300px' }}>
@@ -214,18 +364,13 @@ const Reports = () => {
                   <Doughnut data={categoryData} options={{ ...chartOptions, plugins: { ...chartOptions.plugins, legend: { display: false } } }} />
                 </div>
                 <div className="mt-4 w-100 vstack gap-2">
-                  {[
-                    { label: 'Food & Dining', percent: '45%', color: 'primary' },
-                    { label: 'Beverages', percent: '25%', color: 'info' },
-                    { label: 'Desserts', percent: '15%', color: 'warning' },
-                    { label: 'Service Fees', percent: '15%', color: 'success' },
-                  ].map((item, i) => (
+                  {Object.entries(categoryMap).map(([label, value], i) => (
                     <div key={i} className="d-flex justify-content-between align-items-center small">
                       <div className="d-flex align-items-center gap-2">
-                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: `var(--bs-${item.color})` }}></div>
-                        <span className="text-muted fw-medium">{item.label}</span>
+                        <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: categoryData.datasets[0].backgroundColor[i % 5] }}></div>
+                        <span className="text-muted fw-medium">{label}</span>
                       </div>
-                      <span className="fw-bold">{item.percent}</span>
+                      <span className="fw-bold">₹{value.toLocaleString()}</span>
                     </div>
                   ))}
                 </div>
@@ -262,10 +407,34 @@ const Reports = () => {
               <div className="card-body p-4 pt-0">
                 <div className="vstack gap-2">
                   {[
-                    { title: 'Tax & Compliance Summary', date: 'Dec 2024', icon: CheckCircle, color: 'success' },
-                    { title: 'Inventory Wastage Tracking', date: 'Q4 2024', icon: AlertCircle, color: 'warning' },
-                    { title: 'Staff Performance Index', date: 'Monthly', icon: TrendingUp, color: 'primary' },
-                    { title: 'Customer Feedback Analysis', date: 'Weekly', icon: Users, color: 'info' }
+                    { 
+                      title: 'Tax & Compliance', 
+                      value: `₹${(data.totalTaxCollected || 0).toLocaleString()}`, 
+                      subtext: 'Tax Collected',
+                      icon: CheckCircle, 
+                      color: 'success' 
+                    },
+                    { 
+                      title: 'Inventory Wastage', 
+                      value: `₹${(data.inventoryWastageValue || 0).toLocaleString()}`, 
+                      subtext: 'Expired Value',
+                      icon: AlertCircle, 
+                      color: 'warning' 
+                    },
+                    { 
+                      title: 'Top Staff', 
+                      value: data.topStaffName || 'N/A', 
+                      subtext: `₹${(data.topStaffSales || 0).toLocaleString()} Sales`,
+                      icon: Users, 
+                      color: 'primary' 
+                    },
+                    { 
+                      title: 'Customer Satisfaction', 
+                      value: `${data.customerSatisfactionScore || 0}/5.0`, 
+                      subtext: 'Based on Feedback',
+                      icon: Users, 
+                      color: 'info' 
+                    }
                   ].map((report, i) => (
                     <div key={i} className="d-flex align-items-center p-3 rounded-4 bg-light bg-opacity-50 border border-transparent hover-border-primary transition-all">
                       <div className={`p-2 rounded-3 bg-${report.color}-soft text-${report.color} me-3`}>
@@ -273,11 +442,11 @@ const Reports = () => {
                       </div>
                       <div className="flex-grow-1">
                         <div className="fw-bold small text-dark">{report.title}</div>
-                        <span className="tiny-text text-muted">{report.date} Auto-Generated</span>
+                        <div className="d-flex justify-content-between align-items-center pe-2">
+                           <span className="tiny-text fw-bold text-dark">{report.value}</span>
+                           <span className="tiny-text text-muted">{report.subtext}</span>
+                        </div>
                       </div>
-                      <button className="btn btn-sm btn-light rounded-pill border-0 bg-white shadow-sm p-1">
-                        <ChevronRight size={16} />
-                      </button>
                     </div>
                   ))}
                 </div>
@@ -296,6 +465,8 @@ const Reports = () => {
         </div>
 
       </div>
+
+      <AIAssistant contextData={reportData || {}} contextName={`Reports (${months.find(m => m.value === selectedMonth)?.label} ${selectedYear})`} />
     </div>
   );
 };
