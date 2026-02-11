@@ -290,7 +290,7 @@ const Dashboard = () => {
         <div className="dashboard-card recent-orders">
           <div className="card-header">
             <h3>Recent Orders</h3>
-            <button className="btn-primary-sm">View All</button>
+            <button className="btn-primary-sm" onClick={() => navigate('/orders')}>View All</button>
           </div>
           <div className="table-container">
             <table className="data-table">

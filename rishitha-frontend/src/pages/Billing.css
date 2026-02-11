@@ -212,3 +212,83 @@
 .table-nowrap td {
     vertical-align: middle;
 }
+
+/* Print Styles */
+@media print {
+
+    /* Hide everything by default */
+    body * {
+        visibility: hidden;
+    }
+
+    /* Show only the main content area */
+    .billing-bootstrap-page,
+    .billing-bootstrap-page * {
+        visibility: visible;
+    }
+
+    /* Hide sidebar and other non-print elements explicitly */
+    .sidebar,
+    nav,
+    header,
+    .btn,
+    .badge,
+    .card-header .btn-group,
+    .card-header .badge,
+    .stat-card-modern,
+    .container-fluid>.row:first-child,
+    /* Top Stats Row */
+    .container-fluid>.card:nth-child(2),
+    /* Filter Bar */
+    .container-fluid>.d-flex.gap-2.mb-3
+
+    /* View Toggle Tabs */
+        {
+        display: none !important;
+    }
+
+    /* Reset layout for print */
+    .billing-bootstrap-page {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: auto !important;
+        overflow: visible !important;
+        background: white !important;
+        padding: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* Ensure table is visible and formatted */
+    .table-responsive {
+        overflow: visible !important;
+        height: auto !important;
+    }
+
+    .billing-table-modern {
+        width: 100% !important;
+    }
+
+    .billing-table-modern th,
+    .billing-table-modern td {
+        color: black !important;
+        border-bottom: 1px solid #ddd !important;
+    }
+
+    /* Hide actions column in table */
+    .billing-table-modern th:last-child,
+    .billing-table-modern td:last-child {
+        display: none !important;
+    }
+
+    /* Adjust Card styling for print */
+    .card {
+        border: none !important;
+        box-shadow: none !important;
+    }
+
+    .card-body {
+        padding: 0 !important;
+    }
+}

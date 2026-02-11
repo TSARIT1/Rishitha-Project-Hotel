@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { 
   DollarSign, PieChart, TrendingDown, AlertCircle, Plus, 
-  Download, Search, Filter, Eye, Edit, Trash2, 
+  Search, Filter, Eye, Edit, Trash2, 
   ArrowUpRight, ArrowDownRight, Printer, Wallet, CreditCard,
   Building, ShoppingCart, Users, Zap, X
 } from 'lucide-react';
@@ -22,7 +22,9 @@ const Expenses = () => {
     pendingCount: 0, 
     pendingValue: 0, 
     topCategory: 'N/A', 
-    topCategoryPercent: 0 
+    topCategoryPercent: 0,
+    avgDaily: 0,
+    efficiency: 100
   });
   const [categoryBreakdown, setCategoryBreakdown] = useState([]);
 
@@ -60,8 +62,22 @@ const Expenses = () => {
 
      const topCat = sortedCats.length > 0 ? sortedCats[0].category : 'N/A';
      const topCatPercent = sortedCats.length > 0 ? sortedCats[0].percent : 0;
+
+     // Calculate Avg Daily (Total / Days since first expense or 1)
+     const dates = data.map(item => new Date(item.date).getTime());
+     const minDate = dates.length > 0 ? Math.min(...dates) : Date.now();
+     const daysPassed = Math.max(1, Math.ceil((Date.now() - minDate) / (1000 * 60 * 60 * 24)));
+     const avgDaily = total / daysPassed;
+
+     // Calculate Efficiency (Settlement Rate: Paid / Total)
+     const totalPaid = data.filter(item => item.status === 'Paid').reduce((sum, item) => sum + (item.amount || 0), 0);
+     const efficiency = total > 0 ? Math.round((totalPaid / total) * 100) : 100;
      
-     setDashboardStats({ total, mtd, pendingCount, pendingValue, topCategory: topCat, topCategoryPercent: topCatPercent });
+     setDashboardStats({ 
+        total, mtd, pendingCount, pendingValue, 
+        topCategory: topCat, topCategoryPercent: topCatPercent,
+        avgDaily, efficiency
+     });
      setCategoryBreakdown(sortedCats);
   };
 
@@ -167,9 +183,7 @@ const Expenses = () => {
           <p className="text-muted small mb-0 fw-medium">Track and categorize your restaurant spending</p>
         </div>
         <div className="col-auto d-flex gap-2">
-          <button className="btn btn-outline-info shadow-sm d-flex align-items-center gap-2 px-3 py-2 fw-semibold bg-white rounded-pill">
-            <Download size={18} /> Export
-          </button>
+
           <button 
             className="btn btn-danger-custom shadow-sm d-flex align-items-center gap-2 px-3 py-2 fw-semibold rounded-pill"
             onClick={() => setIsModalOpen(true)}
@@ -343,13 +357,13 @@ const Expenses = () => {
                         <hr className="my-4 opacity-10" />
                         <div className="d-flex justify-content-around">
                            <div>
-                              <div className="h5 fw-bold text-primary mb-0">₹12k</div>
+                              <div className="h5 fw-bold text-primary mb-0">₹{Math.round(dashboardStats.avgDaily).toLocaleString()}</div>
                               <span className="tiny-text text-muted fw-bold">AVG DAILY</span>
                            </div>
                            <div className="vr opacity-10"></div>
                            <div>
-                              <div className="h5 fw-bold text-success mb-0">84%</div>
-                              <span className="tiny-text text-muted fw-bold">EFFICENCY</span>
+                              <div className="h5 fw-bold text-success mb-0">{dashboardStats.efficiency}%</div>
+                              <span className="tiny-text text-muted fw-bold">EFFICIENCY</span>
                            </div>
                         </div>
                     </div>

@@ -39,9 +39,24 @@ const Billing = () => {
   const [rawOrders, setRawOrders] = useState([]); // Store raw orders for filtering active tables
   const [menuItems, setMenuItems] = useState([]);
 
+  const [restaurantSettings, setRestaurantSettings] = useState(null);
+
   useEffect(() => {
     fetchBillingData();
+    fetchRestaurantSettings();
   }, []);
+
+  const fetchRestaurantSettings = async () => {
+      try {
+          const { default: api } = await import('../services/api');
+          const response = await api.get('/settings');
+          if (response.data.success) {
+              setRestaurantSettings(response.data.data);
+          }
+      } catch (error) {
+          console.error("Error fetching restaurant settings:", error);
+      }
+  };
 
   const fetchBillingData = async () => {
       try {
@@ -397,8 +412,84 @@ const Billing = () => {
     }
   };
   
-  const handleExport = () => alert('Export Bills - Would download CSV/PDF');
-  const handlePrint = () => alert('Print Bills - Would open print dialog');
+  const handleExport = () => {
+    const doc = new jsPDF();
+    
+    // Use fetched settings or defaults
+    const rName = restaurantSettings?.restaurantName || 'RISHITHA RESTAURANT';
+    const rAddress = restaurantSettings?.address || 'Delicious City, 560001';
+    const rPhone = restaurantSettings?.phoneNumber || '+91 98765 43210';
+    const rEmail = restaurantSettings?.websiteUrl || 'contact@rishitharestaurant.com'; // Using website field as generic contact info if needed, or we could add email field
+
+    // Restaurant Header
+    doc.setFontSize(20);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(13, 110, 253); // Primary color
+    doc.text(rName.toUpperCase(), 105, 20, { align: 'center' });
+    
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(100);
+    doc.text(`${rAddress} | ${rPhone}`, 105, 26, { align: 'center' });
+    doc.text(rEmail, 105, 31, { align: 'center' });
+    
+    // Divider Line
+    doc.setDrawColor(200);
+    doc.line(14, 35, 196, 35);
+
+    // Report Title
+    doc.setFontSize(16);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(0);
+    doc.text('Invoices Summary Report', 14, 45);
+    
+    // Date Range & Metadata
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(100);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 52);
+    doc.text(`Period: ${fromDate} to ${toDate}`, 14, 57);
+    if (paymentMethod !== 'All Methods') doc.text(`Filter Mode: ${paymentMethod}`, 14, 62);
+
+    // Table
+    const tableColumn = ["Bill No", "Customer", "Table", "Date", "Items", "Total", "Method", "Status"];
+    const tableRows = [];
+
+    filteredBills.forEach(bill => {
+      const billData = [
+        bill.billNo,
+        bill.customer,
+        bill.tableType,
+        bill.dateTime,
+        bill.items,
+        `Rs. ${bill.total.toFixed(2)}`,
+        bill.paymentMethod,
+        bill.paymentStatus
+      ];
+      tableRows.push(billData);
+    });
+
+    autoTable(doc, {
+      head: [tableColumn],
+      body: tableRows,
+      startY: 68,
+      theme: 'grid',
+      styles: { fontSize: 9, cellPadding: 3 },
+      headStyles: { 
+          fillColor: [13, 110, 253],
+          textColor: 255,
+          fontStyle: 'bold'
+      },
+      alternateRowStyles: {
+          fillColor: [248, 249, 250]
+      }
+    });
+
+    doc.save(`Rishitha_Invoices_${fromDate}_${toDate}.pdf`);
+  };
+  const handlePrint = () => {
+    window.print();
+  };
   const handleView = (billNo) => alert(`View Bill ${billNo} - Modal would open`);
   const handleEdit = (billNo) => alert(`Edit Bill ${billNo} - Modal would open`);
   

@@ -283,21 +283,32 @@
     position: sticky;
     top: 0;
     z-index: 10;
+    text-align: left;
+    /* Explicitly set */
+    vertical-align: middle;
 }
 
+/* Fixed Table Alignment */
+.data-table tbody tr {
+    transition: all var(--transition-fast);
+    /* Removed position: relative from tr to fix alignment issues */
+}
+
+/* Apply relative positioning to cells instead */
 .data-table tbody td {
     padding: 1.25rem 1rem;
     border-bottom: 1px solid rgba(0, 0, 0, 0.05);
     font-size: 0.9375rem;
     color: var(--dark);
-}
-
-.data-table tbody tr {
-    transition: all var(--transition-fast);
+    text-align: left;
+    /* Ensure alignment matches headers */
+    vertical-align: middle;
     position: relative;
+    /* Moved here */
 }
 
-.data-table tbody tr::before {
+/* Move the hover indicator to the first cell */
+.data-table tbody tr td:first-child::before {
     content: '';
     position: absolute;
     left: 0;
@@ -309,7 +320,7 @@
     transition: transform var(--transition-fast);
 }
 
-.data-table tbody tr:hover::before {
+.data-table tbody tr:hover td:first-child::before {
     transform: scaleY(1);
 }
 

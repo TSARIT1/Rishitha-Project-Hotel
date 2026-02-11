@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { 
   Users, UserCheck, UserMinus, DollarSign, Clock, 
-  ShieldCheck, Search, Filter, Plus, Download, 
+  ShieldCheck, Search, Filter, Plus, 
   Eye, Edit, Trash2, Calendar, Phone, Mail,
   CheckCircle, AlertCircle, TrendingUp, Briefcase
 } from 'lucide-react';
@@ -14,6 +14,8 @@ const Staff = () => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedStaff, setSelectedStaff] = useState(null);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [showPayrollModal, setShowPayrollModal] = useState(false);
   
   // Form data for new employee
   const [employeeFormData, setEmployeeFormData] = useState({
@@ -171,6 +173,23 @@ const Staff = () => {
     }));
   };
 
+  const handleUpdateSchedule = async (id, newShift) => {
+    try {
+        const { default: api } = await import('../services/api');
+        const staffMember = staffList.find(s => s.id === id);
+        if (!staffMember) return;
+
+        const response = await api.put(`/staff/${id}`, { ...staffMember, shifts: newShift });
+        
+        if (response.data.success) {
+            setStaffList(prev => prev.map(s => s.id === id ? response.data.data : s));
+        }
+    } catch (error) {
+        console.error("Error updating schedule:", error);
+        alert("Failed to update schedule");
+    }
+  };
+
   const handleSubmitEmployee = async (e) => {
     e.preventDefault();
     
@@ -223,9 +242,7 @@ const Staff = () => {
           <p className="text-muted small mb-0 fw-medium">Manage records, payroll, and performance</p>
         </div>
         <div className="col-auto d-flex gap-2">
-          <button className="btn btn-outline-primary shadow-sm d-flex align-items-center gap-2 px-3 py-2 fw-semibold bg-white rounded-pill border-0">
-            <Download size={18} /> Export
-          </button>
+
           <button 
             className="btn btn-primary shadow-sm d-flex align-items-center gap-2 px-3 py-2 fw-semibold rounded-pill"
             onClick={() => setShowAddModal(true)}
@@ -585,7 +602,12 @@ const Staff = () => {
                     <span className="fw-bold text-primary small d-block">Shift Distribution</span>
                     <span className="tiny-text text-muted">Next major shift starts in 2 hours</span>
                   </div>
-                  <button className="btn btn-primary btn-sm rounded-pill px-3 fw-bold">Manage Schedule</button>
+                  <button 
+                    className="btn btn-primary btn-sm rounded-pill px-3 fw-bold"
+                    onClick={() => setShowScheduleModal(true)}
+                  >
+                    Manage Schedule
+                  </button>
                 </div>
               </div>
             </div>
@@ -628,7 +650,10 @@ const Staff = () => {
                     <span className="fw-bold h6 mb-0 text-primary">{formatCurrencySimple(payrollStats.total)}</span>
                   </div>
                 </div>
-                <button className="btn btn-outline-info w-100 rounded-pill mt-3 fw-bold btn-sm border-0 bg-white shadow-sm py-2">
+                <button 
+                   className="btn btn-outline-info w-100 rounded-pill mt-3 fw-bold btn-sm border-0 bg-white shadow-sm py-2"
+                   onClick={() => setShowPayrollModal(true)}
+                >
                    View Full Payroll Report
                 </button>
               </div>
@@ -637,6 +662,131 @@ const Staff = () => {
         </div>
 
       </div>
+
+      {/* Manage Schedule Modal */}
+      {showScheduleModal && (
+        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }} onClick={() => setShowScheduleModal(false)}>
+          <div className="modal-dialog modal-dialog-centered modal-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-content border-0 shadow-lg">
+              <div className="modal-header bg-primary text-white border-0">
+                <h5 className="modal-title fw-bold d-flex align-items-center gap-2">
+                  <Clock size={24} /> Manage Schedule
+                </h5>
+                <button type="button" className="btn-close btn-close-white" onClick={() => setShowScheduleModal(false)}></button>
+              </div>
+              <div className="modal-body p-4">
+                <div className="table-responsive custom-thin-scrollbar" style={{ maxHeight: '400px' }}>
+                  <table className="table table-hover align-middle mb-0">
+                    <thead className="table-light sticky-top">
+                      <tr>
+                        <th>Staff Member</th>
+                        <th>Role</th>
+                        <th>Current Shift</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {staffList.map(staff => (
+                        <tr key={staff.id}>
+                          <td className="fw-bold">{staff.name}</td>
+                          <td className="small text-muted">{staff.role}</td>
+                          <td>
+                            <select 
+                              className="form-select form-select-sm border-0 bg-light fw-bold"
+                              value={staff.shifts}
+                              onChange={(e) => handleUpdateSchedule(staff.id, e.target.value)}
+                            >
+                                <option>9 AM - 5 PM</option>
+                                <option>10 AM - 6 PM</option>
+                                <option>12 PM - 9 PM</option>
+                                <option>4 PM - 12 AM</option>
+                                <option>6 PM - 2 AM</option>
+                                <option>Weekends Only</option>
+                            </select>
+                          </td>
+                          <td>{getStatusPill(staff.status)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div className="modal-footer border-0">
+                <button type="button" className="btn btn-light rounded-pill px-4 fw-bold" onClick={() => setShowScheduleModal(false)}>Close</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Payroll Report Modal */}
+      {showPayrollModal && (
+        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 9999 }} onClick={() => setShowPayrollModal(false)}>
+          <div className="modal-dialog modal-dialog-centered modal-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-content border-0 shadow-lg">
+              <div className="modal-header bg-success text-white border-0">
+                <h5 className="modal-title fw-bold d-flex align-items-center gap-2">
+                  <DollarSign size={24} /> Payroll Report - January 2026
+                </h5>
+                <button type="button" className="btn-close btn-close-white" onClick={() => setShowPayrollModal(false)}></button>
+              </div>
+              <div className="modal-body p-0">
+                <div className="table-responsive custom-thin-scrollbar" style={{ maxHeight: '500px' }}>
+                  <table className="table table-striped align-middle mb-0">
+                    <thead className="bg-light sticky-top">
+                      <tr>
+                        <th className="py-3 ps-4">Employee</th>
+                        <th className="py-3">Role</th>
+                        <th className="py-3 text-end">Base Salary</th>
+                        <th className="py-3 text-center">Attendance</th>
+                        <th className="py-3 text-center">Performance</th>
+                        <th className="py-3 text-end">Incentives</th>
+                        <th className="py-3 text-end pe-4">Total Payout</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {staffList.map(staff => {
+                         const baseSalary = parseFloat(staff.salary.replace(/[^0-9.-]+/g,"")) || 0;
+                         let incentive = 0;
+                         if (staff.performance === 'excellent') incentive = baseSalary * 0.10;
+                         else if (staff.performance === 'good') incentive = baseSalary * 0.05;
+                         
+                         return (
+                            <tr key={staff.id}>
+                              <td className="ps-4 fw-bold text-dark">{staff.name}</td>
+                              <td className="small text-muted">{staff.role}</td>
+                              <td className="text-end font-monospace">{staff.salary}</td>
+                              <td className="text-center"><span className="badge bg-light text-dark border">{staff.attendance}</span></td>
+                              <td className="text-center">{getPerformanceBadge(staff.performance)}</td>
+                              <td className="text-end text-success fw-bold font-monospace">+{formatCurrencySimple(incentive)}</td>
+                              <td className="text-end pe-4 fw-bold text-primary h6 mb-0 font-monospace">
+                                {formatCurrencySimple(baseSalary + incentive)}
+                              </td>
+                            </tr>
+                         );
+                      })}
+                    </tbody>
+                    <tfoot className="bg-light sticky-bottom">
+                       <tr>
+                          <td colSpan="6" className="text-end fw-bold py-3">Total Estimted Payroll:</td>
+                          <td className="text-end pe-4 fw-bold py-3 text-primary h5 mb-0">
+                            {formatCurrencySimple(payrollStats.total)}
+                          </td>
+                       </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+              <div className="modal-footer border-0 bg-light">
+                <button type="button" className="btn btn-outline-secondary rounded-pill px-4 fw-bold border-0 bg-white shadow-sm" onClick={() => setShowPayrollModal(false)}>Close</button>
+                <button type="button" className="btn btn-primary rounded-pill px-4 fw-bold d-flex align-items-center gap-2 shadow-sm">
+                   <Download size={18} /> Download CSV
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

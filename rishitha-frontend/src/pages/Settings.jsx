@@ -4,7 +4,7 @@ import {
   User, Building, Settings as SettingsIcon, Shield, 
   Globe, Bell, CreditCard, Save, Camera, 
   Mail, Phone, MapPin, CheckCircle, Smartphone,
-  Languages, Moon, Sun, Info, LogOut
+  Languages, Moon, Sun, Info, LogOut, X
 } from 'lucide-react';
 import './Settings.css';
 
@@ -13,6 +13,7 @@ const Settings = () => {
   const [activeTab, setActiveTab] = useState('general');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState(null);
+  const [showImageModal, setShowImageModal] = useState(false);
 
   
   // User Profile State
@@ -238,7 +239,13 @@ const Settings = () => {
                           <div className="position-relative">
                              <div className="rounded-circle bg-light d-flex align-items-center justify-content-center border overflow-hidden" style={{ width: '100px', height: '100px' }}>
                                 {userProfile.profilePicture ? (
-                                    <img src={getImageUrl(userProfile.profilePicture)} alt="Profile" className="w-100 h-100 object-fit-cover" />
+                                    <img 
+                                      src={getImageUrl(userProfile.profilePicture)} 
+                                      alt="Profile" 
+                                      className="w-100 h-100 object-fit-cover" 
+                                      style={{ cursor: 'pointer' }}
+                                      onClick={() => setShowImageModal(true)}
+                                    />
                                 ) : (
                                     <User size={48} className="text-muted" />
                                 )}
@@ -400,6 +407,32 @@ const Settings = () => {
         </div>
 
       </div>
+
+      {/* Image Enlarge Modal */}
+      {showImageModal && userProfile.profilePicture && (
+        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.8)', position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 10000 }} onClick={() => setShowImageModal(false)}>
+          <div className="modal-dialog modal-dialog-centered modal-lg" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-content bg-transparent border-0 shadow-none">
+              <div className="modal-body p-0 text-center position-relative">
+                 <button 
+                    type="button" 
+                    className="position-absolute top-0 end-0 m-3 p-2 rounded-circle border-0 d-flex align-items-center justify-content-center" 
+                    onClick={() => setShowImageModal(false)}
+                    style={{ zIndex: 10001, backgroundColor: 'rgba(0,0,0,0.6)', color: 'white', width: '40px', height: '40px' }}
+                 >
+                    <X size={24} />
+                 </button>
+                 <img 
+                    src={getImageUrl(userProfile.profilePicture)} 
+                    alt="Profile Full Size" 
+                    className="img-fluid rounded-3 shadow-lg" 
+                    style={{ maxHeight: '80vh', objectFit: 'contain' }} 
+                 />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

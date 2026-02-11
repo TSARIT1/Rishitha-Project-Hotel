@@ -1,4 +1,7 @@
 import { useState, useEffect } from 'react';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+
 import { 
   BarChart3, TrendingUp, TrendingDown, DollarSign, 
   ShoppingCart, Users, Package, Calendar, 
@@ -46,6 +49,117 @@ const Reports = () => {
   const [trendView, setTrendView] = useState('sales'); // 'sales' or 'orders'
   const [analyzing, setAnalyzing] = useState(false);
   const [aiAnalysis, setAiAnalysis] = useState(null);
+
+  const [restaurantSettings, setRestaurantSettings] = useState(null);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+        try {
+            const { default: api } = await import('../services/api');
+            const response = await api.get('/settings');
+            if (response.data.success) {
+                setRestaurantSettings(response.data.data);
+            }
+        } catch (error) {
+            console.error("Error fetching settings:", error);
+        }
+    };
+    fetchSettings();
+  }, []);
+
+  const handleDownloadReport = () => {
+    if (!reportData) return;
+
+    const doc = new jsPDF();
+    const monthName = months.find(m => m.value === selectedMonth)?.label;
+
+    // Use fetched settings or defaults
+    const rName = restaurantSettings?.restaurantName || 'RISHITHA RESTAURANT';
+    const rAddress = restaurantSettings?.address || 'Delicious City, 560001';
+    const rPhone = restaurantSettings?.phoneNumber || '+91 98765 43210';
+    const rEmail = restaurantSettings?.websiteUrl || 'contact@rishitharestaurant.com'; 
+
+    // Restaurant Header
+    doc.setFontSize(20);
+    doc.setFont(undefined, 'bold');
+    doc.setTextColor(13, 110, 253); // Primary color
+    doc.text(rName.toUpperCase(), 105, 20, { align: 'center' });
+    
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.setTextColor(100);
+    doc.text(`${rAddress} | ${rPhone}`, 105, 26, { align: 'center' });
+    doc.text(rEmail, 105, 31, { align: 'center' });
+    
+    doc.setDrawColor(200);
+    doc.line(14, 35, 196, 35);
+
+    // Title
+    doc.setFontSize(16);
+    doc.setTextColor(0);
+    doc.text(`Monthly Report - ${monthName} ${selectedYear}`, 14, 45);
+
+    // Generated Date
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 52);
+
+    // Key Metrics Section
+    doc.setFontSize(14);
+    doc.setTextColor(0);
+    doc.text('Key Performance Indicators', 14, 65);
+
+    const kpiData = [
+       ['Total Revenue', `Rs. ${reportData.totalRevenue?.toLocaleString() || 0}`],
+       ['Total Customers', reportData.totalCustomers?.toLocaleString() || 0],
+       ['Avg Order Value', `Rs. ${reportData.avgOrderValue?.toLocaleString() || 0}`],
+       ['Inventory Turnover', reportData.inventoryTurnover?.toString() || 0]
+    ];
+
+    autoTable(doc, {
+        startY: 70,
+        head: [['Metric', 'Value']],
+        body: kpiData,
+        theme: 'striped',
+        headStyles: { fillColor: [13, 110, 253] },
+        styles: { fontSize: 12 }
+    });
+
+    // Sales by Category Section
+    const finalY = doc.lastAutoTable.finalY + 15;
+    doc.setFontSize(14);
+    doc.text('Sales by Category', 14, finalY);
+
+    const categoryRows = Object.entries(reportData.salesByCategory || {}).map(([cat, val]) => [cat, `Rs. ${val.toLocaleString()}`]);
+
+    autoTable(doc, {
+        startY: finalY + 5,
+        head: [['Category', 'Sales']],
+        body: categoryRows,
+        theme: 'grid',
+        headStyles: { fillColor: [25, 135, 84] }, // Green for distinct section
+    });
+    
+    // Revenue Trend Summary (Optional compact table)
+    const trendY = doc.lastAutoTable.finalY + 15;
+    if (trendY < 250) { // Only add if space permits on first page, roughly
+        doc.setFontSize(14);
+        doc.text('Revenue Trend (Daily)', 14, trendY);
+        
+        // Take first 10 or summary to avoid long page
+        const trendData = Object.entries(reportData.revenueTrend || {}).slice(0, 15).map(([date, val]) => [date, `Rs. ${val.toLocaleString()}`]);
+        
+        autoTable(doc, {
+            startY: trendY + 5,
+            head: [['Date', 'Revenue']],
+            body: trendData,
+            theme: 'plain',
+            styles: { fontSize: 8 }
+        });
+    }
+
+    doc.save(`Report_${monthName}_${selectedYear}.pdf`);
+  };
 
   const generateAIAnalysis = async () => {
       if (!reportData) return;
@@ -205,7 +319,7 @@ const Reports = () => {
     { title: 'Total Revenue', value: `₹${data.totalRevenue?.toLocaleString() || '0'}`, icon: DollarSign, color: 'primary', trend: `+${data.totalRevenueGrowth || 0}%`, trendUp: true },
     { title: 'Avg. Order', value: `₹${data.avgOrderValue?.toLocaleString() || '0'}`, icon: ShoppingCart, color: 'info', trend: `+${data.avgOrderGrowth || 0}%`, trendUp: true },
     { title: 'Total Customers', value: data.totalCustomers?.toLocaleString() || '0', icon: Users, color: 'success', trend: `+${data.customerGrowth || 0}%`, trendUp: true },
-    { title: 'Inventory Turn', value: data.inventoryTurnover?.toString() || '0', icon: Package, color: 'warning', trend: '-2.4%', trendUp: false },
+    { title: 'Inventory Turn', value: data.inventoryTurnover?.toString() || '0', icon: Package, color: 'warning' },
   ];
 
   return (
@@ -262,7 +376,10 @@ const Reports = () => {
             )}
           </button>
           
-          <button className="btn btn-outline-primary shadow-sm d-flex align-items-center gap-2 px-3 py-2 fw-semibold rounded-pill bg-white">
+          <button 
+            className="btn btn-outline-primary shadow-sm d-flex align-items-center gap-2 px-3 py-2 fw-semibold rounded-pill bg-white"
+            onClick={handleDownloadReport}
+          >
             <Download size={18} /> Download
           </button>
         </div>
@@ -302,10 +419,11 @@ const Reports = () => {
                   <div className="flex-grow-1">
                     <div className="d-flex justify-content-between">
                       <span className="tiny-text fw-bold text-muted text-uppercase ls-1">{stat.title}</span>
-                      {stat.trendUp ? 
-                        <span className="tiny-text text-success fw-bold d-flex align-items-center"><ArrowUpRight size={12}/>{stat.trend}</span> :
-                        <span className="tiny-text text-danger fw-bold d-flex align-items-center"><ArrowDownRight size={12}/>{stat.trend}</span>
-                      }
+                      {stat.trend && (
+                        stat.trendUp ? 
+                          <span className="tiny-text text-success fw-bold d-flex align-items-center"><ArrowUpRight size={12}/>{stat.trend}</span> :
+                          <span className="tiny-text text-danger fw-bold d-flex align-items-center"><ArrowDownRight size={12}/>{stat.trend}</span>
+                      )}
                     </div>
                     <h4 className="fw-bold mb-0">{stat.value}</h4>
                   </div>

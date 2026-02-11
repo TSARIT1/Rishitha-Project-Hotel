@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { 
   ChefHat, Clock, CheckCircle, ClipboardList, RefreshCw, 
-  Printer, AlertCircle, Timer, BarChart3, TrendingUp,
+  AlertCircle, Timer, BarChart3, TrendingUp,
   MoreVertical, CheckCheck
 } from 'lucide-react';
 import './Kitchen.css';
@@ -133,9 +133,7 @@ const Kitchen = () => {
           <button className="btn btn-outline-primary shadow-sm d-flex align-items-center gap-2 px-3 py-2 fw-semibold border-0 bg-white" onClick={() => fetchOrders(true)} disabled={loading}>
             <RefreshCw size={18} className={loading ? "spin-slow" : ""} /> {loading ? "Refreshing..." : "Refresh"}
           </button>
-          <button className="btn btn-primary d-flex align-items-center gap-2 px-3 py-2 fw-semibold shadow-sm">
-            <Printer size={18} /> Print KOT
-          </button>
+
         </div>
       </div>
 

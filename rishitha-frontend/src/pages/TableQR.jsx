@@ -153,9 +153,7 @@ const TableQR = () => {
     }
   };
 
-  const handlePrintLabel = () => {
-    alert('Printing table label...');
-  };
+
 
   const handleRegenerate = async () => {
     if (!selectedTableData?.id) return;
@@ -442,9 +440,7 @@ const TableQR = () => {
                 <button className="btn btn-outline-primary btn-sm flex-grow-1 py-2 d-flex align-items-center justify-content-center gap-2" onClick={handleDownloadQR}>
                   <Download size={16} /> Download
                 </button>
-                <button className="btn btn-outline-info btn-sm flex-grow-1 py-2 d-flex align-items-center justify-content-center gap-2" onClick={handlePrintLabel}>
-                  <Printer size={16} /> Print Label
-                </button>
+
               </div>
             </div>
           </div>

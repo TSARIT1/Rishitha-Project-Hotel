@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { 
-  UtensilsCrossed, Plus, Printer, Search, TrendingUp, 
+  UtensilsCrossed, Plus, Search, TrendingUp, 
   DollarSign, Info, Edit, Trash2, Eye, Star
 } from 'lucide-react';
 import './MenuManagement.css';
@@ -174,9 +174,7 @@ const MenuManagement = () => {
     }
   };
 
-  const handlePrintMenu = () => {
-    alert('Printing menu...');
-  };
+
 
   const handleViewItem = (id) => {
     const item = menuItems.find(i => i.id === id);
@@ -238,10 +236,7 @@ const MenuManagement = () => {
               <Plus size={20} />
               <span>Add Menu Item</span>
             </button>
-            <button className="btn-print-menu" onClick={handlePrintMenu}>
-              <Printer size={20} />
-              <span>Print Menu</span>
-            </button>
+
           </div>
         </div>
       </div>
